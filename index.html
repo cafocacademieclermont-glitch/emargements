@@ -173,36 +173,28 @@ canvas.addEventListener('pointerup',()=>drawing=false);canvas.addEventListener('
 function clearSig(){state.drawn=false;el('sigWrap').classList.remove('drawn');resizeCanvas();validate();}
 function validate(){el('submit').disabled=!(state.selected&&state.drawn&&el('confirm').checked)&&!state.busy;}
 
-function signatureBlob(){
-  // Recadrage sur les pixels non blancs, puis réduction. PNG noir/blanc (canvas déjà blanc + trait noir).
+function signatureDataUrl(){
+  // Recadrage sur les pixels non blancs, réduction puis seuillage noir/blanc.
+  // Le résultat est stocké directement dans Grist sous forme de Data URL PNG.
   const w=canvas.width,h=canvas.height,data=ctx.getImageData(0,0,w,h).data; let minX=w,minY=h,maxX=-1,maxY=-1;
   for(let y=0;y<h;y+=2)for(let x=0;x<w;x+=2){const k=(y*w+x)*4;if(data[k]<245||data[k+1]<245||data[k+2]<245){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);}}
-  if(maxX<0) return Promise.resolve(null);
+  if(maxX<0) return null;
   const pad=20;minX=Math.max(0,minX-pad);minY=Math.max(0,minY-pad);maxX=Math.min(w-1,maxX+pad);maxY=Math.min(h-1,maxY+pad);
-  const sw=maxX-minX+1,sh=maxY-minY+1,targetW=Math.min(640,sw),scale=targetW/sw,targetH=Math.max(80,Math.round(sh*scale));
-  const out=document.createElement('canvas');out.width=targetW;out.height=targetH;const o=out.getContext('2d',{alpha:false});o.fillStyle='#fff';o.fillRect(0,0,targetW,targetH);o.drawImage(canvas,minX,minY,sw,sh,0,0,targetW,targetH);
-  // seuillage noir/blanc pour réduire le poids et améliorer l'impression
-  const img=o.getImageData(0,0,targetW,targetH);for(let i=0;i<img.data.length;i+=4){const g=(img.data[i]+img.data[i+1]+img.data[i+2])/3,v=g<210?0:255;img.data[i]=img.data[i+1]=img.data[i+2]=v;img.data[i+3]=255;}o.putImageData(img,0,0);
-  return new Promise(res=>out.toBlob(res,'image/png'));
-}
-async function uploadAttachment(blob,row){
-  const tokenInfo=await grist.docApi.getAccessToken({readOnly:false});
-  const fd=new FormData(); const fname=`signature_${state.learner.id}_${ymd(row.Date_Formation)}_${String(row.Demi_Journee).replace(/\W+/g,'_')}.png`; fd.append('upload',blob,fname);
-  // Passer le jeton dans ?auth= évite l'en-tête Authorization, qui déclenche
-  // un preflight CORS refusé par certaines instances Grist (dont numerique.gouv.fr).
-  const uploadUrl=`${tokenInfo.baseUrl}/attachments?auth=${encodeURIComponent(tokenInfo.token)}`;
-  const resp=await fetch(uploadUrl,{method:'POST',body:fd});
-  if(!resp.ok) throw new Error(`Envoi de la signature impossible (${resp.status}).`);
-  const ids=await resp.json(); return Array.isArray(ids)?ids[0]:ids;
+  const sw=maxX-minX+1,sh=maxY-minY+1;
+  const targetW=Math.min(450,sw),scale=targetW/sw,targetH=Math.max(60,Math.min(150,Math.round(sh*scale)));
+  const out=document.createElement('canvas');out.width=targetW;out.height=targetH;
+  const o=out.getContext('2d',{alpha:false});o.fillStyle='#fff';o.fillRect(0,0,targetW,targetH);o.drawImage(canvas,minX,minY,sw,sh,0,0,targetW,targetH);
+  const img=o.getImageData(0,0,targetW,targetH);
+  for(let i=0;i<img.data.length;i+=4){const g=(img.data[i]+img.data[i+1]+img.data[i+2])/3,v=g<210?0:255;img.data[i]=img.data[i+1]=img.data[i+2]=v;img.data[i+3]=255;}
+  o.putImageData(img,0,0);
+  return out.toDataURL('image/png');
 }
 async function submit(){
   if(el('submit').disabled||state.busy)return; state.busy=true;validate();msg(el('formMsg'),'Enregistrement en cours…','info');
   try{
     const row=state.selected; if(!row)throw new Error('Aucun créneau sélectionné.');
-    const blob=await signatureBlob(); if(!blob)throw new Error('La signature est vide.');
-    const attachmentId=await uploadAttachment(blob,row);
-    // Les listes Grist sont encodées comme ["L", ...].
-    await grist.docApi.applyUserActions([["UpdateRecord",TABLES.attendance,row.id,{Signature_Effectuee:true,Signature:["L",attachmentId]}]]);
+    const signatureData=signatureDataUrl(); if(!signatureData)throw new Error('La signature est vide.');
+    await grist.docApi.applyUserActions([["UpdateRecord",TABLES.attendance,row.id,{Signature_Effectuee:true,Signature_Data:signatureData}]]);
     msg(el('formMsg'),'Émargement enregistré. Merci.','ok');
     clearSig();el('confirm').checked=false;
     // Recharge les données pour refléter le trigger Horodatage_Signature et retirer le créneau signé.
