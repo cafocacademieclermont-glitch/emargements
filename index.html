@@ -129,7 +129,12 @@ async function login(){
 function eligibleRows(){
   const today=localISO();
   // Autorise les créneaux non signés jusqu'à aujourd'hui, jamais les créneaux futurs.
-  return state.rows.filter(r=>!activeBool(r.Signature_Effectuee) && ymd(r.Date_Formation) && ymd(r.Date_Formation)<=today)
+  return state.rows.filter(r=>
+      !activeBool(r.Signature_Effectuee) &&
+      !activeBool(r.Absent) &&
+      ymd(r.Date_Formation) &&
+      ymd(r.Date_Formation)<=today
+    )
     .sort((a,b)=>ymd(b.Date_Formation).localeCompare(ymd(a.Date_Formation)) || (a.Demi_Journee==='Après-midi'?-1:1));
 }
 function currentPreferred(rows){
@@ -144,8 +149,14 @@ function renderForm(){
   el('training').textContent=state.training.Nom_Formation||'Formation';
   el('hello').textContent='Code vérifié';
   const rows=eligibleRows(); state.selected=currentPreferred(rows); renderSlots(rows); updateSelectedDate();
-  if(!parisWeekday() && !rows.length) msg(el('formMsg'),'Aucun émargement n’est prévu le week-end.','info');
-  if(!rows.length) msg(el('formMsg'),'Tous les émargements disponibles sont déjà signés.','ok');
+  const absentRows=state.rows.filter(r=>activeBool(r.Absent) && ymd(r.Date_Formation) && ymd(r.Date_Formation)<=localISO());
+  if(!parisWeekday() && !rows.length) {
+    msg(el('formMsg'),'Aucun émargement n’est prévu le week-end.','info');
+  } else if(!rows.length && absentRows.length) {
+    msg(el('formMsg'),'Aucun créneau n’est actuellement signable. Un ou plusieurs créneaux sont déclarés absents.','info');
+  } else if(!rows.length) {
+    msg(el('formMsg'),'Tous les émargements disponibles sont déjà signés.','ok');
+  }
   validate(); resizeCanvas();
 }
 function renderSlots(rows){
@@ -193,8 +204,24 @@ async function submit(){
   if(el('submit').disabled||state.busy)return; state.busy=true;validate();msg(el('formMsg'),'Enregistrement en cours…','info');
   try{
     const row=state.selected; if(!row)throw new Error('Aucun créneau sélectionné.');
+
+    // Relire la table juste avant l'écriture : l'administration a pu cocher "Absent"
+    // pendant que le formulaire était ouvert.
+    const latestAttendance=tableRows(await grist.docApi.fetchTable(TABLES.attendance));
+    const latestRow=latestAttendance.find(r=>r.id===row.id);
+    if(!latestRow) throw new Error('Ce créneau n’existe plus.');
+    if(activeBool(latestRow.Absent)) {
+      throw new Error('Ce créneau a été déclaré absent. La signature est bloquée.');
+    }
+    if(activeBool(latestRow.Signature_Effectuee)) {
+      throw new Error('Ce créneau a déjà été signé.');
+    }
+
     const signatureData=signatureDataUrl(); if(!signatureData)throw new Error('La signature est vide.');
-    await grist.docApi.applyUserActions([["UpdateRecord",TABLES.attendance,row.id,{Signature_Effectuee:true,Signature_Data:signatureData}]]);
+    await grist.docApi.applyUserActions([["UpdateRecord",TABLES.attendance,row.id,{
+      Signature_Effectuee:true,
+      Signature_Data:signatureData
+    }]]);
     msg(el('formMsg'),'Émargement enregistré. Merci.','ok');
     clearSig();el('confirm').checked=false;
     // Recharge les données pour refléter le trigger Horodatage_Signature et retirer le créneau signé.

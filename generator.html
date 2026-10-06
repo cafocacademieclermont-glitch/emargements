@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Génération des émargements</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#14213d}
+  body{margin:0;background:#f5f7fb}
+  main{max-width:760px;margin:40px auto;padding:24px}
+  .card{background:white;border:1px solid #dde3ec;border-radius:16px;padding:24px;box-shadow:0 8px 30px rgba(23,42,79,.08)}
+  h1{margin:0 0 8px;color:#164a9b}
+  p{line-height:1.5}
+  button{border:0;border-radius:10px;padding:12px 18px;background:#1457b8;color:white;font-weight:700;cursor:pointer}
+  button:disabled{opacity:.55;cursor:default}
+  .msg{margin-top:18px;padding:12px 14px;border-radius:10px;background:#eef4ff}
+  .ok{background:#eaf8ef;color:#155c2c}
+  .error{background:#fff0f0;color:#8b1f1f}
+  code{background:#f0f2f6;padding:2px 5px;border-radius:5px}
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>Synchronisation des émargements</h1>
+    <p>
+      Ce widget crée les lignes attendues dans <code>Emargements</code> pour chaque inscription active :
+      uniquement du lundi au vendredi, avec une ligne <b>Matin</b> et une ligne <b>Après-midi</b>.
+      Les lignes existantes ne sont jamais recréées.
+    </p>
+    <button id="sync">Synchroniser maintenant</button>
+    <div id="msg" class="msg">Prêt.</div>
+  </div>
+</main>
+<script>
+const TABLES={learners:'Apprenants',trainings:'Formations',registrations:'Inscriptions',attendance:'Emargements'};
+const $=id=>document.getElementById(id);
+
+function tableRows(t){
+  if(!t) return [];
+  if(Array.isArray(t)) return t;
+  const ids=t.id||[], keys=Object.keys(t).filter(k=>k!=='id');
+  return ids.map((id,i)=>Object.fromEntries([['id',id],...keys.map(k=>[k,t[k]?.[i]])]));
+}
+function refId(v){if(v==null)return null;if(typeof v==='number')return v;if(typeof v==='object'&&v.id)return v.id;return Number(v)||null}
+function activeBool(v){return v===true||v===1||String(v).toLowerCase()==='true'}
+function asDate(v){
+  if(!v)return null;
+  if(v instanceof Date)return new Date(v.getFullYear(),v.getMonth(),v.getDate());
+  if(typeof v==='number'){const d=new Date(v*1000);return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
+  const d=new Date(v); return isNaN(d)?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());
+}
+function ymdDate(d){
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function gristDate(d){
+  // Les colonnes Date de Grist acceptent un timestamp Unix en secondes.
+  return Math.floor(new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()/1000);
+}
+function makeKey(apprenant,formation,date,part){
+  return `${apprenant}-${formation}-${ymdDate(date)}-${part}`;
+}
+function msg(text,type=''){const e=$('msg');e.textContent=text;e.className='msg '+type}
+
+async function sync(){
+  $('sync').disabled=true; msg('Analyse des inscriptions…');
+  try{
+    const [f,i,e]=await Promise.all([
+      grist.docApi.fetchTable(TABLES.trainings),
+      grist.docApi.fetchTable(TABLES.registrations),
+      grist.docApi.fetchTable(TABLES.attendance)
+    ]);
+    const trainings=tableRows(f), regs=tableRows(i), attendance=tableRows(e);
+    const trainingById=new Map(trainings.map(x=>[x.id,x]));
+    const existing=new Set(attendance.map(r=>{
+      if(r.Cle_Emargement) return String(r.Cle_Emargement);
+      const d=asDate(r.Date_Formation);
+      return d&&r.Apprenant&&r.Formation&&r.Demi_Journee
+        ? makeKey(refId(r.Apprenant),refId(r.Formation),d,r.Demi_Journee)
+        : '';
+    }).filter(Boolean));
+
+    const actions=[];
+    let skipped=0, invalid=0;
+
+    for(const reg of regs){
+      if(!activeBool(reg.Active)) continue;
+      const apprenant=refId(reg.Apprenant), formationId=refId(reg.Formation);
+      const training=trainingById.get(formationId);
+      if(!apprenant||!formationId||!training){invalid++;continue}
+
+      const start=asDate(training.Date_Debut), end=asDate(training.Date_Fin);
+      if(!start||!end||start>end){invalid++;continue}
+
+      for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){
+        const weekday=d.getDay(); // 0 dim, 6 sam
+        if(weekday===0||weekday===6) continue;
+
+        for(const part of ['Matin','Après-midi']){
+          const key=makeKey(apprenant,formationId,d,part);
+          if(existing.has(key)){skipped++;continue}
+          existing.add(key);
+
+          actions.push(["AddRecord",TABLES.attendance,null,{
+            Apprenant:apprenant,
+            Formation:formationId,
+            Date_Formation:gristDate(d),
+            Demi_Journee:part,
+            Signature_Effectuee:false,
+            Absent:false
+          }]);
+        }
+      }
+    }
+
+    if(actions.length){
+      // Une seule opération groupée pour garder la synchronisation cohérente.
+      await grist.docApi.applyUserActions(actions);
+    }
+
+    msg(`${actions.length} ligne(s) créée(s), ${skipped} déjà présente(s), ${invalid} inscription(s) ignorée(s).`,'ok');
+  }catch(err){
+    console.error(err);
+    msg(err.message||'Erreur pendant la synchronisation.','error');
+  }finally{
+    $('sync').disabled=false;
+  }
+}
+$('sync').onclick=sync;
+grist.ready({requiredAccess:'full'});
+</script>
+</body>
+</html>
