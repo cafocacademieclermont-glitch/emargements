@@ -188,7 +188,10 @@ function signatureBlob(){
 async function uploadAttachment(blob,row){
   const tokenInfo=await grist.docApi.getAccessToken({readOnly:false});
   const fd=new FormData(); const fname=`signature_${state.learner.id}_${ymd(row.Date_Formation)}_${String(row.Demi_Journee).replace(/\W+/g,'_')}.png`; fd.append('upload',blob,fname);
-  const resp=await fetch(`${tokenInfo.baseUrl}/attachments`,{method:'POST',headers:{Authorization:`Bearer ${tokenInfo.token}`},body:fd});
+  // Passer le jeton dans ?auth= évite l'en-tête Authorization, qui déclenche
+  // un preflight CORS refusé par certaines instances Grist (dont numerique.gouv.fr).
+  const uploadUrl=`${tokenInfo.baseUrl}/attachments?auth=${encodeURIComponent(tokenInfo.token)}`;
+  const resp=await fetch(uploadUrl,{method:'POST',body:fd});
   if(!resp.ok) throw new Error(`Envoi de la signature impossible (${resp.status}).`);
   const ids=await resp.json(); return Array.isArray(ids)?ids[0]:ids;
 }
