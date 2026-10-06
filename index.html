@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Émargement CAFoc</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    :root{--blue:#0b3d8f;--blue2:#0a56b8;--ink:#162033;--muted:#667085;--line:#d8dee8;--panel:#f6f8fb;--ok:#087a3d;--warn:#a15c00;--danger:#b42318}
+    *{box-sizing:border-box} body{margin:0;background:#fff;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .shell{max-width:820px;margin:0 auto;padding:28px 20px 44px}.brand{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;padding:4px 4px 24px;border-bottom:4px solid #e7ebf1}
+    .rf{font-weight:800;letter-spacing:.02em;line-height:1.08;font-size:18px}.rf small{display:block;font-weight:500;font-family:Georgia,serif;font-style:italic;margin-top:10px;line-height:1.2}
+    .cafoc{text-align:right;color:var(--blue);font-weight:800}.cafoc strong{display:block;font-size:28px;letter-spacing:.14em;background:#ff9f0a;color:#111;padding:4px 14px;border-radius:4px;margin-top:5px}.cafoc span{display:block;font-size:14px;margin-top:5px}
+    h1{color:var(--blue);font-size:clamp(34px,6vw,54px);line-height:1;margin:30px 0 6px;letter-spacing:-.03em}.subtitle{font-size:24px;color:#5b6576;margin-bottom:28px}
+    .card{border:1px solid var(--line);border-radius:18px;background:linear-gradient(135deg,#f4f7fa,#fff);padding:20px;margin:14px 0;box-shadow:0 1px 2px rgba(16,24,40,.03)}
+    .grid{display:grid;grid-template-columns:180px 1fr;gap:14px 18px;align-items:center}.label{font-weight:700;color:#59657a}.value{border:1px solid #cbd3df;border-radius:12px;background:#fff;padding:13px 16px;font-size:20px;min-height:52px;display:flex;align-items:center}
+    .login{max-width:520px;margin:56px auto 0}.login h2{color:var(--blue);font-size:30px;margin-top:0}.login p{color:var(--muted)}
+    input[type=text]{width:100%;font:inherit;font-size:24px;letter-spacing:.12em;text-transform:uppercase;padding:16px;border:2px solid #cbd3df;border-radius:12px;outline:none} input[type=text]:focus{border-color:var(--blue2);box-shadow:0 0 0 4px rgba(10,86,184,.12)}
+    button{font:inherit;border:0;border-radius:12px;cursor:pointer}.primary{width:100%;background:linear-gradient(180deg,#1262c3,#0750a9);color:#fff;font-weight:800;font-size:20px;letter-spacing:.03em;padding:16px 20px}.primary:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#f1f3f6;color:#59657a;border:1px solid #cbd3df;font-weight:700;padding:14px 22px}
+    .slots{display:flex;gap:10px;flex-wrap:wrap}.slot{flex:1;min-width:160px;border:2px solid #ccd5e2;background:#fff;padding:14px;border-radius:12px;font-weight:700;text-align:left}.slot.active{border-color:var(--blue2);background:#eef5ff;color:var(--blue)}.slot small{display:block;font-weight:500;color:#667085;margin-top:4px}.slot.signed{opacity:.55}.slot.late small{color:var(--warn)}
+    .confirm{display:flex;align-items:flex-start;gap:12px;background:#edf5ff;border:1px solid #d6e8ff}.confirm input{width:24px;height:24px;accent-color:var(--blue2);margin-top:2px}.confirm label{font-weight:750;color:#0d347c;font-size:18px}
+    .sig-title{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:800;font-size:22px;margin-bottom:12px}.sig-wrap{position:relative;border:2px solid #cbd3df;border-radius:12px;background:#fff;overflow:hidden;touch-action:none}.sig-wrap canvas{display:block;width:100%;height:210px;touch-action:none}.sig-hint{position:absolute;inset:0;display:grid;place-items:center;color:#a1a9b7;pointer-events:none;font-size:20px}.sig-wrap.drawn .sig-hint{display:none}.actions{display:grid;grid-template-columns:160px 1fr;gap:14px;margin-top:20px}.msg{padding:12px 14px;border-radius:10px;margin:14px 0;font-weight:650}.msg.error{background:#fff0ee;color:var(--danger)}.msg.ok{background:#eaf8f0;color:var(--ok)}.msg.info{background:#f1f5fb;color:#475467}.hidden{display:none!important}.topline{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:14px 0}.linkbtn{background:transparent;color:var(--blue2);font-weight:700;padding:8px}.footnote{font-size:12px;color:#7a8495;margin-top:18px;line-height:1.4}
+    @media(max-width:650px){.shell{padding:16px 12px 30px}.brand{align-items:center}.rf{font-size:13px}.cafoc strong{font-size:20px}.cafoc span{font-size:11px}h1{margin-top:22px}.subtitle{font-size:18px}.grid{grid-template-columns:1fr;gap:6px}.value{font-size:17px}.label{margin-top:8px}.card{padding:15px}.actions{grid-template-columns:1fr}.secondary{order:2}.sig-wrap canvas{height:180px}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header class="brand">
+    <div class="rf">RÉPUBLIQUE<br>FRANÇAISE<small>Liberté<br>Égalité<br>Fraternité</small></div>
+    <div class="cafoc">GIP FCIP AUVERGNE<strong>CAFOC</strong><span>ACADÉMIE DE CLERMONT-FERRAND</span></div>
+  </header>
+
+  <section id="login" class="login card">
+    <h2>Émargement</h2>
+    <p>Saisissez le code qui vous a été remis au début de la formation.</p>
+    <input id="code" type="text" autocomplete="off" inputmode="text" maxlength="24" placeholder="VOTRE CODE" />
+    <div id="loginMsg"></div>
+    <button id="loginBtn" class="primary" style="margin-top:14px">CONTINUER</button>
+  </section>
+
+  <main id="form" class="hidden">
+    <h1>Formulaire d’émargement</h1>
+    <div class="subtitle">Formation – Feuille de présence</div>
+    <div class="topline"><span id="hello"></span><button id="logout" class="linkbtn">Changer d’apprenant</button></div>
+
+    <section class="card grid">
+      <div class="label">Nom et prénom</div><div id="name" class="value"></div>
+      <div class="label">Formation</div><div id="training" class="value"></div>
+      <div class="label">Date</div><div id="date" class="value"></div>
+    </section>
+
+    <section class="card">
+      <div class="label" style="margin-bottom:10px">Demi-journée à émarger</div>
+      <div id="slots" class="slots"></div>
+      <div class="footnote">Le créneau actuel est proposé en priorité. Les créneaux antérieurs non signés peuvent aussi être régularisés.</div>
+    </section>
+
+    <section class="card confirm">
+      <input id="confirm" type="checkbox" />
+      <label for="confirm">Je confirme ma présence pour cette demi-journée.</label>
+    </section>
+
+    <section class="card">
+      <div class="sig-title"><span>Signature</span><span style="font-size:13px;color:#667085;font-weight:600">souris, doigt ou stylet</span></div>
+      <div id="sigWrap" class="sig-wrap">
+        <canvas id="sig"></canvas>
+        <div class="sig-hint">[ zone de signature ]</div>
+      </div>
+      <div class="actions"><button id="clear" class="secondary">Effacer</button><button id="submit" class="primary" disabled>VALIDER MON ÉMARGEMENT</button></div>
+      <div id="formMsg"></div>
+    </section>
+  </main>
+</div>
+<script>
+const TABLES={learners:'Apprenants', trainings:'Formations', registrations:'Inscriptions', attendance:'Emargements'};
+const el=id=>document.getElementById(id);
+let state={learner:null,training:null,rows:[],selected:null,drawn:false,busy:false};
+
+function tableRows(t){
+  if(!t) return [];
+  if(Array.isArray(t)) return t;
+  const ids=t.id||[]; const keys=Object.keys(t).filter(k=>k!=='id');
+  return ids.map((id,i)=>Object.fromEntries([['id',id],...keys.map(k=>[k,t[k]?.[i]])]));
+}
+function refId(v){ if(v==null) return null; if(typeof v==='number') return v; if(typeof v==='object'&&v.id) return v.id; return Number(v)||null; }
+function asDate(v){
+  if(!v) return null; if(v instanceof Date) return v;
+  if(typeof v==='number') return new Date(v*1000);
+  const d=new Date(v); return isNaN(d)?null:d;
+}
+function localISO(d=new Date()){const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);const o=Object.fromEntries(p.map(x=>[x.type,x.value]));return `${o.year}-${o.month}-${o.day}`;}
+function ymd(v){const d=asDate(v); if(!d)return''; return localISO(d);}
+function frDate(v){const d=asDate(v)||new Date();return new Intl.DateTimeFormat('fr-FR',{timeZone:'Europe/Paris',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(d).replace(/^./,c=>c.toUpperCase());}
+function parisHour(){return Number(new Intl.DateTimeFormat('fr-FR',{timeZone:'Europe/Paris',hour:'2-digit',hour12:false}).format(new Date()));}
+function parisWeekday(){const s=new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Paris',weekday:'short'}).format(new Date());return ['Mon','Tue','Wed','Thu','Fri'].includes(s);}
+function msg(target,text,type='info'){target.innerHTML=text?`<div class="msg ${type}">${text}</div>`:'';}
+function activeBool(v){return v===true||v===1||String(v).toLowerCase()==='true';}
+
+async function loadAll(){
+  const [a,f,i,e]=await Promise.all([
+    grist.docApi.fetchTable(TABLES.learners),grist.docApi.fetchTable(TABLES.trainings),
+    grist.docApi.fetchTable(TABLES.registrations),grist.docApi.fetchTable(TABLES.attendance)
+  ]);
+  return {learners:tableRows(a),trainings:tableRows(f),registrations:tableRows(i),attendance:tableRows(e)};
+}
+
+async function login(){
+  const code=el('code').value.trim(); if(!code){msg(el('loginMsg'),'Saisissez votre code.','error');return;}
+  el('loginBtn').disabled=true; msg(el('loginMsg'),'Vérification…');
+  try{
+    const data=await loadAll();
+    const learner=data.learners.find(x=>String(x.Code??'').trim().toUpperCase()===code.toUpperCase() && activeBool(x.Actif));
+    if(!learner) throw new Error('Code inconnu ou apprenant inactif.');
+    const regs=data.registrations.filter(r=>refId(r.Apprenant)===learner.id && activeBool(r.Active));
+    if(!regs.length) throw new Error('Aucune inscription active n’est associée à ce code.');
+    const trainingIds=new Set(regs.map(r=>refId(r.Formation)).filter(Boolean));
+    const trainings=data.trainings.filter(f=>trainingIds.has(f.id) && (f.Active==null||activeBool(f.Active)));
+    if(!trainings.length) throw new Error('Aucune formation active n’est disponible.');
+    // V1: si plusieurs formations actives, sélectionner celle qui contient la date du jour, sinon la première.
+    const today=localISO();
+    const training=trainings.find(f=>(!f.Date_Debut||ymd(f.Date_Debut)<=today)&&(!f.Date_Fin||ymd(f.Date_Fin)>=today))||trainings[0];
+    const rows=data.attendance.filter(r=>refId(r.Apprenant)===learner.id && refId(r.Formation)===training.id);
+    state={...state,learner,training,rows};
+    renderForm();
+  }catch(err){msg(el('loginMsg'),err.message||'Impossible de charger les données.','error');}
+  finally{el('loginBtn').disabled=false;}
+}
+
+function eligibleRows(){
+  const today=localISO();
+  // Autorise les créneaux non signés jusqu'à aujourd'hui, jamais les créneaux futurs.
+  return state.rows.filter(r=>!activeBool(r.Signature_Effectuee) && ymd(r.Date_Formation) && ymd(r.Date_Formation)<=today)
+    .sort((a,b)=>ymd(b.Date_Formation).localeCompare(ymd(a.Date_Formation)) || (a.Demi_Journee==='Après-midi'?-1:1));
+}
+function currentPreferred(rows){
+  const today=localISO(); const h=parisHour(); const part=h<13?'Matin':'Après-midi';
+  return rows.find(r=>ymd(r.Date_Formation)===today&&r.Demi_Journee===part)
+    || rows.find(r=>ymd(r.Date_Formation)===today)
+    || rows[0] || null;
+}
+function renderForm(){
+  el('login').classList.add('hidden'); el('form').classList.remove('hidden');
+  el('name').textContent=`${state.learner.Prenom||''} ${state.learner.Nom||''}`.trim();
+  el('training').textContent=state.training.Nom_Formation||'Formation';
+  el('hello').textContent='Code vérifié';
+  const rows=eligibleRows(); state.selected=currentPreferred(rows); renderSlots(rows); updateSelectedDate();
+  if(!parisWeekday() && !rows.length) msg(el('formMsg'),'Aucun émargement n’est prévu le week-end.','info');
+  if(!rows.length) msg(el('formMsg'),'Tous les émargements disponibles sont déjà signés.','ok');
+  validate(); resizeCanvas();
+}
+function renderSlots(rows){
+  const box=el('slots'); box.innerHTML='';
+  rows.forEach(r=>{
+    const b=document.createElement('button'); b.type='button';
+    const late=ymd(r.Date_Formation)<localISO();
+    b.className='slot'+(state.selected?.id===r.id?' active':'')+(late?' late':'');
+    b.innerHTML=`${r.Demi_Journee||'Créneau'}<small>${frDate(r.Date_Formation)}${late?' · à régulariser':''}</small>`;
+    b.onclick=()=>{state.selected=r;renderSlots(rows);updateSelectedDate();validate();}; box.appendChild(b);
+  });
+}
+function updateSelectedDate(){el('date').textContent=state.selected?frDate(state.selected.Date_Formation):'Aucun créneau disponible';}
+
+const canvas=el('sig'), ctx=canvas.getContext('2d',{alpha:false}); let drawing=false,last=null;
+function resizeCanvas(){
+  const rect=canvas.getBoundingClientRect(), ratio=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+  const snapshot=state.drawn?canvas.toDataURL():null; canvas.width=Math.round(rect.width*ratio);canvas.height=Math.round(rect.height*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);ctx.fillStyle='#fff';ctx.fillRect(0,0,rect.width,rect.height);ctx.strokeStyle='#111';ctx.lineWidth=2.1;ctx.lineCap='round';ctx.lineJoin='round';
+  if(snapshot){const im=new Image();im.onload=()=>ctx.drawImage(im,0,0,rect.width,rect.height);im.src=snapshot;}
+}
+function point(ev){const r=canvas.getBoundingClientRect();return{x:ev.clientX-r.left,y:ev.clientY-r.top};}
+canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);drawing=true;last=point(e);state.drawn=true;el('sigWrap').classList.add('drawn');validate();});
+canvas.addEventListener('pointermove',e=>{if(!drawing)return;const p=point(e);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;});
+canvas.addEventListener('pointerup',()=>drawing=false);canvas.addEventListener('pointercancel',()=>drawing=false);
+function clearSig(){state.drawn=false;el('sigWrap').classList.remove('drawn');resizeCanvas();validate();}
+function validate(){el('submit').disabled=!(state.selected&&state.drawn&&el('confirm').checked)&&!state.busy;}
+
+function signatureBlob(){
+  // Recadrage sur les pixels non blancs, puis réduction. PNG noir/blanc (canvas déjà blanc + trait noir).
+  const w=canvas.width,h=canvas.height,data=ctx.getImageData(0,0,w,h).data; let minX=w,minY=h,maxX=-1,maxY=-1;
+  for(let y=0;y<h;y+=2)for(let x=0;x<w;x+=2){const k=(y*w+x)*4;if(data[k]<245||data[k+1]<245||data[k+2]<245){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);}}
+  if(maxX<0) return Promise.resolve(null);
+  const pad=20;minX=Math.max(0,minX-pad);minY=Math.max(0,minY-pad);maxX=Math.min(w-1,maxX+pad);maxY=Math.min(h-1,maxY+pad);
+  const sw=maxX-minX+1,sh=maxY-minY+1,targetW=Math.min(640,sw),scale=targetW/sw,targetH=Math.max(80,Math.round(sh*scale));
+  const out=document.createElement('canvas');out.width=targetW;out.height=targetH;const o=out.getContext('2d',{alpha:false});o.fillStyle='#fff';o.fillRect(0,0,targetW,targetH);o.drawImage(canvas,minX,minY,sw,sh,0,0,targetW,targetH);
+  // seuillage noir/blanc pour réduire le poids et améliorer l'impression
+  const img=o.getImageData(0,0,targetW,targetH);for(let i=0;i<img.data.length;i+=4){const g=(img.data[i]+img.data[i+1]+img.data[i+2])/3,v=g<210?0:255;img.data[i]=img.data[i+1]=img.data[i+2]=v;img.data[i+3]=255;}o.putImageData(img,0,0);
+  return new Promise(res=>out.toBlob(res,'image/png'));
+}
+async function uploadAttachment(blob,row){
+  const tokenInfo=await grist.docApi.getAccessToken({readOnly:false});
+  const fd=new FormData(); const fname=`signature_${state.learner.id}_${ymd(row.Date_Formation)}_${String(row.Demi_Journee).replace(/\W+/g,'_')}.png`; fd.append('upload',blob,fname);
+  const resp=await fetch(`${tokenInfo.baseUrl}/attachments`,{method:'POST',headers:{Authorization:`Bearer ${tokenInfo.token}`},body:fd});
+  if(!resp.ok) throw new Error(`Envoi de la signature impossible (${resp.status}).`);
+  const ids=await resp.json(); return Array.isArray(ids)?ids[0]:ids;
+}
+async function submit(){
+  if(el('submit').disabled||state.busy)return; state.busy=true;validate();msg(el('formMsg'),'Enregistrement en cours…','info');
+  try{
+    const row=state.selected; if(!row)throw new Error('Aucun créneau sélectionné.');
+    const blob=await signatureBlob(); if(!blob)throw new Error('La signature est vide.');
+    const attachmentId=await uploadAttachment(blob,row);
+    // Les listes Grist sont encodées comme ["L", ...].
+    await grist.docApi.applyUserActions([["UpdateRecord",TABLES.attendance,row.id,{Signature_Effectuee:true,Signature:["L",attachmentId]}]]);
+    msg(el('formMsg'),'Émargement enregistré. Merci.','ok');
+    clearSig();el('confirm').checked=false;
+    // Recharge les données pour refléter le trigger Horodatage_Signature et retirer le créneau signé.
+    const data=await loadAll(); state.rows=data.attendance.filter(r=>refId(r.Apprenant)===state.learner.id&&refId(r.Formation)===state.training.id);
+    const rows=eligibleRows();state.selected=currentPreferred(rows);renderSlots(rows);updateSelectedDate();
+  }catch(err){console.error(err);msg(el('formMsg'),err.message||'Une erreur est survenue pendant l’enregistrement.','error');}
+  finally{state.busy=false;validate();}
+}
+
+el('loginBtn').onclick=login;el('code').addEventListener('keydown',e=>{if(e.key==='Enter')login();});el('clear').onclick=clearSig;el('confirm').onchange=validate;el('submit').onclick=submit;el('logout').onclick=()=>{state={learner:null,training:null,rows:[],selected:null,drawn:false,busy:false};el('form').classList.add('hidden');el('login').classList.remove('hidden');el('code').value='';msg(el('loginMsg'),'');clearSig();el('code').focus();};
+window.addEventListener('resize',()=>{clearTimeout(window._rs);window._rs=setTimeout(resizeCanvas,120);});
+
+grist.ready({requiredAccess:'full'});
+</script>
+</body>
+</html>
