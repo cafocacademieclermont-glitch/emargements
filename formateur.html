@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Émargement formateur</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+:root{--blue:#0b3d8f;--blue2:#0a56b8;--ink:#162033;--muted:#667085;--line:#d8dee8;--ok:#087a3d;--warn:#b26a00;--danger:#b42318;--abs:#596579}
+*{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.shell{max-width:900px;margin:0 auto;padding:24px 18px 44px}.brand{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding:4px 4px 20px;border-bottom:4px solid #e7ebf1}
+.rf{font-weight:800;line-height:1.08;font-size:18px}.rf small{display:block;font-weight:500;font-family:Georgia,serif;font-style:italic;margin-top:8px;line-height:1.2}
+.cafoc{text-align:right;color:var(--blue);font-weight:800}.cafoc strong{display:block;font-size:26px;letter-spacing:.12em;background:#ff9f0a;color:#111;padding:4px 14px;border-radius:4px;margin-top:5px}.cafoc span{display:block;font-size:14px;margin-top:5px}
+h1{color:var(--blue);font-size:clamp(32px,5vw,48px);line-height:1;margin:28px 0 6px}.subtitle{font-size:20px;color:#5b6576;margin-bottom:20px}
+.card{border:1px solid var(--line);border-radius:16px;background:linear-gradient(135deg,#f4f7fa,#fff);padding:18px;margin:14px 0;box-shadow:0 1px 2px rgba(16,24,40,.03)}
+.login{max-width:520px;margin:48px auto 0}.login h2{color:var(--blue);font-size:28px;margin-top:0}.login p{color:var(--muted)}
+input,select{width:100%;font:inherit;padding:13px 14px;border:1.5px solid #cbd3df;border-radius:10px;background:#fff;outline:none}
+input[type=text]{font-size:22px;letter-spacing:.1em;text-transform:uppercase}
+input:focus,select:focus{border-color:var(--blue2);box-shadow:0 0 0 3px rgba(10,86,184,.10)}
+button{font:inherit;border:0;border-radius:11px;cursor:pointer}.primary{width:100%;background:linear-gradient(180deg,#1262c3,#0750a9);color:#fff;font-weight:800;font-size:18px;padding:15px 18px}
+.primary:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#f1f3f6;color:#59657a;border:1px solid #cbd3df;font-weight:700;padding:13px 18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field label{display:block;font-weight:750;color:#59657a;margin-bottom:7px}
+.value{border:1px solid #cbd3df;border-radius:10px;background:white;padding:12px 14px;min-height:48px;display:flex;align-items:center}
+.rooms{display:flex;gap:8px;flex-wrap:wrap}.room{padding:6px 10px;border-radius:999px;background:#eef3fb;color:#294b7a;font-weight:700;font-size:13px}
+.slots{display:flex;gap:10px;flex-wrap:wrap}.slot{flex:1;min-width:160px;border:2px solid #ccd5e2;background:#fff;padding:13px;border-radius:11px;font-weight:750}.slot.active{border-color:var(--blue2);background:#eef5ff;color:var(--blue)}
+.people{display:grid;gap:8px;margin-top:12px}.person{display:flex;justify-content:space-between;gap:12px;align-items:center;border:1px solid #e0e5ed;border-radius:10px;padding:10px 12px;background:white}.person strong{font-size:15px}
+.badge{font-size:12px;font-weight:800;border-radius:999px;padding:5px 9px;white-space:nowrap}.signed{background:#e9f8ee;color:var(--ok)}.pending{background:#fff2dd;color:var(--warn)}.absent{background:#eef0f3;color:var(--abs)}
+.summary{font-weight:800;margin-top:10px;color:#475467}.sig-title{display:flex;justify-content:space-between;gap:12px;font-weight:800;font-size:20px;margin-bottom:10px}
+.sig-wrap{position:relative;border:2px solid #cbd3df;border-radius:11px;background:#fff;overflow:hidden;touch-action:none}.sig-wrap canvas{display:block;width:100%;height:190px;touch-action:none}.sig-hint{position:absolute;inset:0;display:grid;place-items:center;color:#a1a9b7;pointer-events:none}.sig-wrap.drawn .sig-hint{display:none}
+.actions{display:grid;grid-template-columns:150px 1fr;gap:12px;margin-top:16px}.msg{padding:11px 13px;border-radius:9px;margin:12px 0;font-weight:650}.msg.error{background:#fff0ee;color:var(--danger)}.msg.ok{background:#eaf8f0;color:var(--ok)}.msg.info{background:#f1f5fb;color:#475467}.hidden{display:none!important}.topline{display:flex;justify-content:space-between;align-items:center;gap:12px}.linkbtn{background:transparent;color:var(--blue2);font-weight:700;padding:8px}
+@media(max-width:680px){.shell{padding:14px 10px 30px}.brand{align-items:center}.rf{font-size:13px}.cafoc strong{font-size:19px}.cafoc span{font-size:11px}.grid{grid-template-columns:1fr}.actions{grid-template-columns:1fr}.secondary{order:2}.sig-wrap canvas{height:170px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="brand">
+<div class="rf">RÉPUBLIQUE<br>FRANÇAISE<small>Liberté<br>Égalité<br>Fraternité</small></div>
+<div class="cafoc">GIP FCIP AUVERGNE<strong>CAFOC</strong><span>ACADÉMIE DE CLERMONT-FERRAND</span></div>
+</header>
+
+<section id="login" class="login card">
+<h2>Espace formateur</h2><p>Saisissez votre code formateur.</p>
+<input id="code" type="text" autocomplete="off" maxlength="24" placeholder="VOTRE CODE">
+<div id="loginMsg"></div><button id="loginBtn" class="primary" style="margin-top:14px">CONTINUER</button>
+</section>
+
+<main id="app" class="hidden">
+<h1>Suivi des émargements</h1><div class="subtitle">Contrôle des présences et émargement formateur</div>
+<div class="topline"><span id="hello"></span><button id="logout" class="linkbtn">Changer de formateur</button></div>
+
+<section class="card grid">
+<div class="field"><label>Formation</label><select id="training"></select></div>
+<div class="field"><label>Date</label><input id="date" type="date"></div>
+<div class="field"><label>Salle(s)</label><div id="rooms" class="value rooms">—</div></div>
+<div class="field"><label>Demi-journée</label><div id="slots" class="slots">
+<button type="button" class="slot" data-part="Matin">Matin</button>
+<button type="button" class="slot" data-part="Après-midi">Après-midi</button>
+</div></div>
+</section>
+
+<section class="card">
+<div class="sig-title"><span>Émargements des apprenants</span><span id="count" style="font-size:13px;color:#667085"></span></div>
+<div id="people" class="people"></div><div id="summary" class="summary"></div>
+</section>
+
+<section class="card">
+<div class="sig-title"><span>Signature du formateur</span><span style="font-size:13px;color:#667085;font-weight:600">souris, doigt ou stylet</span></div>
+<div id="trainerStatus"></div>
+<div id="sigWrap" class="sig-wrap"><canvas id="sig"></canvas><div class="sig-hint">[ zone de signature ]</div></div>
+<div class="actions"><button id="clear" class="secondary">Effacer</button><button id="submit" class="primary" disabled>VALIDER MON ÉMARGEMENT</button></div>
+<div id="formMsg"></div>
+</section>
+</main>
+</div>
+
+<script>
+const TABLES={trainers:'Formateurs',trainings:'Formations',days:'Formation_Jours',learners:'Apprenants',registrations:'Inscriptions',attendance:'Emargements',trainerAttendance:'Emargements_Formateurs'};
+const el=id=>document.getElementById(id);
+let state={trainer:null,trainings:[],all:null,part:null,drawn:false,busy:false};
+
+function tableRows(t){if(!t)return[];if(Array.isArray(t))return t;const ids=t.id||[],keys=Object.keys(t).filter(k=>k!=='id');return ids.map((id,i)=>Object.fromEntries([['id',id],...keys.map(k=>[k,t[k]?.[i]])]));}
+function refId(v){if(v==null)return null;if(typeof v==='number')return v;if(typeof v==='object'&&v.id)return v.id;return Number(v)||null}
+function refIds(v){if(!v)return[];if(Array.isArray(v)){if(v[0]==='L')return v.slice(1).map(refId).filter(Boolean);return v.map(refId).filter(Boolean)}return[refId(v)].filter(Boolean)}
+function activeBool(v){return v===true||v===1||String(v).toLowerCase()==='true'}
+function asDate(v){if(!v)return null;if(v instanceof Date)return v;if(typeof v==='number')return new Date(v*1000);const d=new Date(v);return isNaN(d)?null:d}
+function ymd(v){const d=asDate(v);if(!d)return'';const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);const o=Object.fromEntries(p.map(x=>[x.type,x.value]));return `${o.year}-${o.month}-${o.day}`}
+function todayParis(){return ymd(new Date())}
+function gristDate(iso){const [y,m,d]=iso.split('-').map(Number);return Math.floor(new Date(y,m-1,d).getTime()/1000)}
+function msg(target,text,type='info'){target.innerHTML=text?`<div class="msg ${type}">${text}</div>`:''}
+function listValue(v){if(!v)return[];if(Array.isArray(v))return v[0]==='L'?v.slice(1):v;return[v]}
+function fullName(r){return `${r.Prenom||''} ${r.Nom||''}`.trim()}
+
+async function loadAll(){
+const [tr,fo,fd,ap,ins,em,ef]=await Promise.all([
+grist.docApi.fetchTable(TABLES.trainers),grist.docApi.fetchTable(TABLES.trainings),grist.docApi.fetchTable(TABLES.days),
+grist.docApi.fetchTable(TABLES.learners),grist.docApi.fetchTable(TABLES.registrations),grist.docApi.fetchTable(TABLES.attendance),
+grist.docApi.fetchTable(TABLES.trainerAttendance)]);
+return{trainers:tableRows(tr),trainings:tableRows(fo),days:tableRows(fd),learners:tableRows(ap),registrations:tableRows(ins),attendance:tableRows(em),trainerAttendance:tableRows(ef)};
+}
+
+async function login(){
+const code=el('code').value.trim();if(!code){msg(el('loginMsg'),'Saisissez votre code.','error');return}
+el('loginBtn').disabled=true;msg(el('loginMsg'),'Vérification…');
+try{
+const data=await loadAll();
+const trainer=data.trainers.find(t=>String(t.Code??'').trim().toUpperCase()===code.toUpperCase()&&activeBool(t.Actif));
+if(!trainer)throw new Error('Code inconnu ou formateur inactif.');
+const ids=new Set(refIds(trainer.Formations));
+const trainings=data.trainings.filter(f=>ids.has(f.id)&&(f.Active==null||activeBool(f.Active)));
+if(!trainings.length)throw new Error('Aucune formation active n’est associée à ce formateur.');
+state={...state,trainer,trainings,all:data};renderApp();
+}catch(e){msg(el('loginMsg'),e.message||'Impossible de charger les données.','error')}
+finally{el('loginBtn').disabled=false}
+}
+
+function renderApp(){
+el('login').classList.add('hidden');el('app').classList.remove('hidden');
+el('hello').textContent=`${fullName(state.trainer)} · code vérifié`;
+el('training').innerHTML=state.trainings.map(f=>`<option value="${f.id}">${f.Nom_Formation||'Formation'}</option>`).join('');
+const today=todayParis();const tf=state.trainings.find(f=>(!f.Date_Debut||ymd(f.Date_Debut)<=today)&&(!f.Date_Fin||ymd(f.Date_Fin)>=today));if(tf)el('training').value=String(tf.id);
+el('date').value=today;
+const hour=Number(new Intl.DateTimeFormat('fr-FR',{timeZone:'Europe/Paris',hour:'2-digit',hour12:false}).format(new Date()));
+state.part=hour<13?'Matin':'Après-midi';renderSlots();refreshView();resizeCanvas();
+}
+function selectedTrainingId(){return Number(el('training').value)||null}
+function selectedDate(){return el('date').value}
+function renderSlots(){document.querySelectorAll('.slot').forEach(b=>b.classList.toggle('active',b.dataset.part===state.part))}
+function dayRow(){const fid=selectedTrainingId(),date=selectedDate();return state.all.days.find(r=>refId(r.Formation)===fid&&ymd(r.Date_Formation)===date)||null}
+function renderRooms(){const row=dayRow(),values=row?listValue(row.Salles):[];el('rooms').innerHTML=values.length?values.map(x=>`<span class="room">${String(x)}</span>`).join(''):'—'}
+
+function learnerRows(){
+const fid=selectedTrainingId(),date=selectedDate(),part=state.part;
+const ids=new Set(state.all.registrations.filter(r=>activeBool(r.Active)&&refId(r.Formation)===fid).map(r=>refId(r.Apprenant)).filter(Boolean));
+return state.all.learners.filter(a=>ids.has(a.id)&&(a.Actif==null||activeBool(a.Actif))).map(a=>{
+const att=state.all.attendance.find(e=>refId(e.Apprenant)===a.id&&refId(e.Formation)===fid&&ymd(e.Date_Formation)===date&&e.Demi_Journee===part);
+return{learner:a,attendance:att};
+}).sort((x,y)=>(x.learner.Nom||'').localeCompare(y.learner.Nom||'','fr'));
+}
+function renderPeople(){
+const rows=learnerRows();let signed=0,pending=0,absent=0;
+el('people').innerHTML=rows.map(({learner,attendance})=>{
+let label='À signer',cls='pending';
+if(attendance&&activeBool(attendance.Absent)){label='Absent';cls='absent';absent++}
+else if(attendance&&activeBool(attendance.Signature_Effectuee)){label='Signé';cls='signed';signed++}
+else pending++;
+return `<div class="person"><strong>${fullName(learner)}</strong><span class="badge ${cls}">${label}</span></div>`;
+}).join('')||'<div class="msg info">Aucun apprenant actif pour cette formation.</div>';
+el('count').textContent=`${rows.length} apprenant(s)`;el('summary').textContent=`${signed} signé(s) · ${pending} en attente · ${absent} absent(s)`;
+}
+function existingTrainerAttendance(){
+const fid=selectedTrainingId(),date=selectedDate(),part=state.part;
+return state.all.trainerAttendance.find(r=>refId(r.Formateur)===state.trainer.id&&refId(r.Formation)===fid&&ymd(r.Date_Formation)===date&&r.Demi_Journee===part)||null;
+}
+function renderTrainerStatus(){const row=existingTrainerAttendance();if(row&&activeBool(row.Signature_Effectuee)){msg(el('trainerStatus'),'Vous avez déjà signé cette demi-journée.','ok');el('submit').disabled=true}else{msg(el('trainerStatus'),'Cette demi-journée n’est pas encore signée par vous.','info');validate()}}
+function validate(){const already=existingTrainerAttendance();el('submit').disabled=!!already||!(state.part&&state.drawn)||state.busy}
+function refreshView(){renderRooms();renderPeople();renderTrainerStatus();clearSig(false)}
+
+const canvas=el('sig'),ctx=canvas.getContext('2d',{alpha:false});let drawing=false,last=null;
+function resizeCanvas(){const rect=canvas.getBoundingClientRect(),ratio=Math.max(1,Math.min(2,window.devicePixelRatio||1));canvas.width=Math.round(rect.width*ratio);canvas.height=Math.round(rect.height*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);ctx.fillStyle='#fff';ctx.fillRect(0,0,rect.width,rect.height);ctx.strokeStyle='#111';ctx.lineWidth=2.1;ctx.lineCap='round';ctx.lineJoin='round'}
+function point(ev){const r=canvas.getBoundingClientRect();return{x:ev.clientX-r.left,y:ev.clientY-r.top}}
+canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);drawing=true;last=point(e);state.drawn=true;el('sigWrap').classList.add('drawn');validate()});
+canvas.addEventListener('pointermove',e=>{if(!drawing)return;const p=point(e);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p});
+canvas.addEventListener('pointerup',()=>drawing=false);canvas.addEventListener('pointercancel',()=>drawing=false);
+function clearSig(runValidate=true){state.drawn=false;el('sigWrap').classList.remove('drawn');resizeCanvas();if(runValidate)validate()}
+
+function signatureDataUrl(){
+const w=canvas.width,h=canvas.height,data=ctx.getImageData(0,0,w,h).data;let minX=w,minY=h,maxX=-1,maxY=-1;
+for(let y=0;y<h;y+=2)for(let x=0;x<w;x+=2){const k=(y*w+x)*4;if(data[k]<245||data[k+1]<245||data[k+2]<245){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y)}}
+if(maxX<0)return null;const pad=20;minX=Math.max(0,minX-pad);minY=Math.max(0,minY-pad);maxX=Math.min(w-1,maxX+pad);maxY=Math.min(h-1,maxY+pad);
+const sw=maxX-minX+1,sh=maxY-minY+1,targetW=Math.min(450,sw),scale=targetW/sw,targetH=Math.max(60,Math.min(150,Math.round(sh*scale)));
+const out=document.createElement('canvas');out.width=targetW;out.height=targetH;const o=out.getContext('2d',{alpha:false});o.fillStyle='#fff';o.fillRect(0,0,targetW,targetH);o.drawImage(canvas,minX,minY,sw,sh,0,0,targetW,targetH);
+const img=o.getImageData(0,0,targetW,targetH);for(let i=0;i<img.data.length;i+=4){const g=(img.data[i]+img.data[i+1]+img.data[i+2])/3,v=g<210?0:255;img.data[i]=img.data[i+1]=img.data[i+2]=v;img.data[i+3]=255}o.putImageData(img,0,0);return out.toDataURL('image/png');
+}
+
+async function submit(){
+if(el('submit').disabled||state.busy)return;state.busy=true;validate();msg(el('formMsg'),'Enregistrement en cours…','info');
+try{
+state.all=await loadAll();if(existingTrainerAttendance())throw new Error('Vous avez déjà signé cette demi-journée.');
+const fid=selectedTrainingId(),date=selectedDate(),training=state.trainings.find(f=>f.id===fid);if(!training)throw new Error('Formation introuvable.');
+if((training.Date_Debut&&ymd(training.Date_Debut)>date)||(training.Date_Fin&&ymd(training.Date_Fin)<date))throw new Error('La date sélectionnée est hors de la période de formation.');
+const sig=signatureDataUrl();if(!sig)throw new Error('La signature est vide.');
+await grist.docApi.applyUserActions([["AddRecord",TABLES.trainerAttendance,null,{Formateur:state.trainer.id,Formation:fid,Date_Formation:gristDate(date),Demi_Journee:state.part,Signature_Effectuee:true,Signature_Data:sig}]]);
+state.all=await loadAll();msg(el('formMsg'),'Émargement formateur enregistré.','ok');clearSig(false);renderTrainerStatus();
+}catch(e){console.error(e);msg(el('formMsg'),e.message||'Erreur pendant l’enregistrement.','error')}
+finally{state.busy=false;validate()}
+}
+
+document.querySelectorAll('.slot').forEach(b=>b.onclick=()=>{state.part=b.dataset.part;renderSlots();refreshView()});
+el('training').onchange=refreshView;el('date').onchange=refreshView;el('clear').onclick=()=>clearSig(true);el('submit').onclick=submit;el('loginBtn').onclick=login;
+el('code').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+el('logout').onclick=()=>{state={trainer:null,trainings:[],all:null,part:null,drawn:false,busy:false};el('app').classList.add('hidden');el('login').classList.remove('hidden');el('code').value='';msg(el('loginMsg'),'');el('code').focus()};
+window.addEventListener('resize',()=>{clearTimeout(window._rs);window._rs=setTimeout(()=>clearSig(false),120)});
+grist.ready({requiredAccess:'full'});
+</script>
+</body></html>
