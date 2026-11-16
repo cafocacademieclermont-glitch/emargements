@@ -3,43 +3,80 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Génération des émargements</title>
+<title>Administration des émargements</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <style>
-  :root{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#14213d}
-  body{margin:0;background:#f5f7fb}
-  main{max-width:760px;margin:40px auto;padding:24px}
-  .card{background:white;border:1px solid #dde3ec;border-radius:16px;padding:24px;box-shadow:0 8px 30px rgba(23,42,79,.08)}
-  h1{margin:0 0 8px;color:#164a9b}
-  p{line-height:1.5}
-  button{border:0;border-radius:10px;padding:12px 18px;background:#1457b8;color:white;font-weight:700;cursor:pointer}
-  button:disabled{opacity:.55;cursor:default}
-  .msg{margin-top:18px;padding:12px 14px;border-radius:10px;background:#eef4ff}
-  .ok{background:#eaf8ef;color:#155c2c}
-  .error{background:#fff0f0;color:#8b1f1f}
-  code{background:#f0f2f6;padding:2px 5px;border-radius:5px}
+:root{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#14213d;--blue:#1457b8;--ok:#176b38;--warn:#9a5b00;--err:#9b1c1c;--line:#dfe5ee}
+*{box-sizing:border-box}
+body{margin:0;background:#f5f7fb}
+main{max-width:980px;margin:32px auto;padding:20px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:0 7px 24px rgba(23,42,79,.07);margin-bottom:16px}
+h1{margin:0 0 8px;color:#164a9b}h2{font-size:18px;margin:0 0 12px}p{line-height:1.45;color:#4b5870}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+button{border:0;border-radius:10px;padding:12px 18px;background:var(--blue);color:#fff;font-weight:750;cursor:pointer}
+button.secondary{background:#eef3fb;color:#254c82;border:1px solid #ccd8e9}
+button:disabled{opacity:.5;cursor:default}
+.msg{margin-top:15px;padding:12px 14px;border-radius:10px;background:#eef4ff}
+.ok{background:#eaf8ef;color:var(--ok)}.warn{background:#fff5e5;color:var(--warn)}.error{background:#fff0f0;color:var(--err)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.stat{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fbfcfe}.stat b{display:block;font-size:26px;color:#123f7d}.stat span{font-size:12px;color:#667085}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;border-bottom:1px solid #e7ebf1;padding:9px 8px;vertical-align:top}th{color:#516077;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+.tag{display:inline-block;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:750}.tag.error{background:#fff0f0}.tag.warn{background:#fff5e5}.tag.info{background:#eef4ff;color:#355b8b}
+.hidden{display:none!important}.muted{color:#768196;font-size:13px}
+@media(max-width:720px){main{padding:10px}.stats{grid-template-columns:1fr 1fr}.card{padding:15px}table{font-size:12px}}
 </style>
 </head>
 <body>
 <main>
-  <div class="card">
-    <h1>Synchronisation des émargements</h1>
+  <section class="card">
+    <h1>Administration des émargements</h1>
     <p>
-      Ce widget crée les lignes attendues dans <code>Emargements</code> pour chaque inscription active :
-      uniquement du lundi au vendredi, avec une ligne <b>Matin</b> et une ligne <b>Après-midi</b>.
-      Les lignes existantes ne sont jamais recréées.
+      Analyse la base, crée les journées de formation manquantes et génère les émargements
+      apprenants attendus du lundi au vendredi. Aucune ligne existante n'est supprimée ou écrasée.
     </p>
-    <button id="sync">Synchroniser maintenant</button>
+    <div class="actions">
+      <button id="analyse" class="secondary">Analyser sans modifier</button>
+      <button id="sync">Synchroniser</button>
+    </div>
     <div id="msg" class="msg">Prêt.</div>
-  </div>
+  </section>
+
+  <section id="statsCard" class="card hidden">
+    <h2>Résumé</h2>
+    <div class="stats">
+      <div class="stat"><b id="sDays">0</b><span>journées à créer</span></div>
+      <div class="stat"><b id="sAttendance">0</b><span>émargements à créer</span></div>
+      <div class="stat"><b id="sErrors">0</b><span>anomalies</span></div>
+      <div class="stat"><b id="sWarnings">0</b><span>avertissements</span></div>
+    </div>
+  </section>
+
+  <section id="issuesCard" class="card hidden">
+    <h2>Contrôles</h2>
+    <div class="muted">Les avertissements n'empêchent pas la synchronisation. Les anomalies doivent être vérifiées.</div>
+    <div style="overflow:auto;margin-top:10px">
+      <table>
+        <thead><tr><th>Niveau</th><th>Type</th><th>Détail</th></tr></thead>
+        <tbody id="issues"></tbody>
+      </table>
+    </div>
+  </section>
 </main>
+
 <script>
-const TABLES={learners:'Apprenants',trainings:'Formations',registrations:'Inscriptions',attendance:'Emargements'};
+const TABLES={
+  learners:'Apprenants',
+  trainings:'Formations',
+  registrations:'Inscriptions',
+  attendance:'Emargements',
+  days:'Formation_Jours'
+};
 const $=id=>document.getElementById(id);
+let busy=false;
 
 function tableRows(t){
-  if(!t) return [];
-  if(Array.isArray(t)) return t;
+  if(!t)return [];
+  if(Array.isArray(t))return t;
   const ids=t.id||[], keys=Object.keys(t).filter(k=>k!=='id');
   return ids.map((id,i)=>Object.fromEntries([['id',id],...keys.map(k=>[k,t[k]?.[i]])]));
 }
@@ -49,86 +86,218 @@ function asDate(v){
   if(!v)return null;
   if(v instanceof Date)return new Date(v.getFullYear(),v.getMonth(),v.getDate());
   if(typeof v==='number'){const d=new Date(v*1000);return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
-  const d=new Date(v); return isNaN(d)?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  const d=new Date(v);return isNaN(d)?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());
 }
 function ymdDate(d){
+  if(!d)return '';
   const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${day}`;
 }
-function gristDate(d){
-  // Les colonnes Date de Grist acceptent un timestamp Unix en secondes.
-  return Math.floor(new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()/1000);
+function gristDate(d){return Math.floor(new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()/1000)}
+function addDay(d,n=1){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function isWeekday(d){const n=d.getDay();return n!==0&&n!==6}
+function attendanceKey(a,f,d,p){return `${a}-${f}-${ymdDate(d)}-${p}`}
+function dayKey(f,d){return `${f}-${ymdDate(d)}`}
+function nameOfLearner(r){return `${r?.Prenom||''} ${r?.Nom||''}`.trim()||`#${r?.id||'?'}`}
+function nameOfTraining(r){return r?.Nom_Formation||`Formation #${r?.id||'?'}`}
+function hasRooms(v){
+  if(v==null||v==='')return false;
+  if(Array.isArray(v))return (v[0]==='L'?v.slice(1):v).length>0;
+  return String(v).trim().length>0;
 }
-function makeKey(apprenant,formation,date,part){
-  return `${apprenant}-${formation}-${ymdDate(date)}-${part}`;
-}
-function msg(text,type=''){const e=$('msg');e.textContent=text;e.className='msg '+type}
+function setMsg(text,type=''){const e=$('msg');e.textContent=text;e.className='msg '+type}
+function issue(level,type,detail){return{level,type,detail}}
 
-async function sync(){
-  $('sync').disabled=true; msg('Analyse des inscriptions…');
+async function loadData(){
   try{
-    const [f,i,e]=await Promise.all([
+    const [a,f,i,e,j]=await Promise.all([
+      grist.docApi.fetchTable(TABLES.learners),
       grist.docApi.fetchTable(TABLES.trainings),
       grist.docApi.fetchTable(TABLES.registrations),
-      grist.docApi.fetchTable(TABLES.attendance)
+      grist.docApi.fetchTable(TABLES.attendance),
+      grist.docApi.fetchTable(TABLES.days)
     ]);
-    const trainings=tableRows(f), regs=tableRows(i), attendance=tableRows(e);
-    const trainingById=new Map(trainings.map(x=>[x.id,x]));
-    const existing=new Set(attendance.map(r=>{
-      if(r.Cle_Emargement) return String(r.Cle_Emargement);
-      const d=asDate(r.Date_Formation);
-      return d&&r.Apprenant&&r.Formation&&r.Demi_Journee
-        ? makeKey(refId(r.Apprenant),refId(r.Formation),d,r.Demi_Journee)
-        : '';
-    }).filter(Boolean));
-
-    const actions=[];
-    let skipped=0, invalid=0;
-
-    for(const reg of regs){
-      if(!activeBool(reg.Active)) continue;
-      const apprenant=refId(reg.Apprenant), formationId=refId(reg.Formation);
-      const training=trainingById.get(formationId);
-      if(!apprenant||!formationId||!training){invalid++;continue}
-
-      const start=asDate(training.Date_Debut), end=asDate(training.Date_Fin);
-      if(!start||!end||start>end){invalid++;continue}
-
-      for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){
-        const weekday=d.getDay(); // 0 dim, 6 sam
-        if(weekday===0||weekday===6) continue;
-
-        for(const part of ['Matin','Après-midi']){
-          const key=makeKey(apprenant,formationId,d,part);
-          if(existing.has(key)){skipped++;continue}
-          existing.add(key);
-
-          actions.push(["AddRecord",TABLES.attendance,null,{
-            Apprenant:apprenant,
-            Formation:formationId,
-            Date_Formation:gristDate(d),
-            Demi_Journee:part,
-            Signature_Effectuee:false,
-            Absent:false
-          }]);
-        }
-      }
-    }
-
-    if(actions.length){
-      // Une seule opération groupée pour garder la synchronisation cohérente.
-      await grist.docApi.applyUserActions(actions);
-    }
-
-    msg(`${actions.length} ligne(s) créée(s), ${skipped} déjà présente(s), ${invalid} inscription(s) ignorée(s).`,'ok');
+    return{
+      learners:tableRows(a),trainings:tableRows(f),registrations:tableRows(i),
+      attendance:tableRows(e),days:tableRows(j)
+    };
   }catch(err){
-    console.error(err);
-    msg(err.message||'Erreur pendant la synchronisation.','error');
-  }finally{
-    $('sync').disabled=false;
+    if(String(err?.message||err).includes('Formation_Jours')){
+      throw new Error("La table Formation_Jours est introuvable. Créez-la avec Formation, Date_Formation et Salles.");
+    }
+    throw err;
   }
 }
-$('sync').onclick=sync;
+
+function analyseData(data){
+  const issues=[];
+  const learnersById=new Map(data.learners.map(x=>[x.id,x]));
+  const trainingsById=new Map(data.trainings.map(x=>[x.id,x]));
+
+  const existingAttendance=new Map();
+  for(const r of data.attendance){
+    const a=refId(r.Apprenant),f=refId(r.Formation),d=asDate(r.Date_Formation),p=r.Demi_Journee;
+    if(!a||!f||!d||!p){
+      issues.push(issue('error','Émargement incomplet',`Ligne #${r.id} : champ obligatoire manquant.`));
+      continue;
+    }
+    const key=attendanceKey(a,f,d,p);
+    if(existingAttendance.has(key)){
+      issues.push(issue('error','Doublon émargement',`${key} — lignes #${existingAttendance.get(key).id} et #${r.id}.`));
+    } else existingAttendance.set(key,r);
+
+    const training=trainingsById.get(f);
+    if(training){
+      const start=asDate(training.Date_Debut),end=asDate(training.Date_Fin);
+      if(start&&d<start || end&&d>end){
+        issues.push(issue('error','Date hors formation',`Émargement #${r.id} (${ymdDate(d)}) hors période de ${nameOfTraining(training)}.`));
+      }
+    }
+    if(!isWeekday(d)){
+      issues.push(issue('error','Émargement week-end',`Ligne #${r.id} datée du ${ymdDate(d)}.`));
+    }
+  }
+
+  const existingDays=new Map();
+  for(const r of data.days){
+    const f=refId(r.Formation),d=asDate(r.Date_Formation);
+    if(!f||!d){
+      issues.push(issue('error','Journée incomplète',`Formation_Jours #${r.id} : formation ou date manquante.`));
+      continue;
+    }
+    const key=dayKey(f,d);
+    if(existingDays.has(key)){
+      issues.push(issue('error','Doublon journée',`${key} — lignes #${existingDays.get(key).id} et #${r.id}.`));
+    } else existingDays.set(key,r);
+
+    const training=trainingsById.get(f);
+    if(training){
+      const start=asDate(training.Date_Debut),end=asDate(training.Date_Fin);
+      if(start&&d<start || end&&d>end){
+        issues.push(issue('error','Journée hors formation',`${ymdDate(d)} hors période de ${nameOfTraining(training)}.`));
+      }
+    }
+    if(!isWeekday(d)){
+      issues.push(issue('error','Journée week-end',`${nameOfTraining(training)} — ${ymdDate(d)}.`));
+    }
+    if(!hasRooms(r.Salles)){
+      issues.push(issue('warn','Salle non renseignée',`${nameOfTraining(training)} — ${ymdDate(d)}.`));
+    }
+  }
+
+  const dayActions=[];
+  for(const training of data.trainings){
+    if(training.Active!=null && !activeBool(training.Active))continue;
+    const start=asDate(training.Date_Debut),end=asDate(training.Date_Fin);
+    if(!start||!end||start>end){
+      issues.push(issue('error','Formation invalide',`${nameOfTraining(training)} : dates de début/fin invalides.`));
+      continue;
+    }
+    for(let d=new Date(start);d<=end;d=addDay(d)){
+      if(!isWeekday(d))continue;
+      const key=dayKey(training.id,d);
+      if(!existingDays.has(key)){
+        dayActions.push(["AddRecord",TABLES.days,null,{
+          Formation:training.id,
+          Date_Formation:gristDate(d)
+        }]);
+      }
+    }
+  }
+
+  const attendanceActions=[];
+  const futureKeys=new Set(existingAttendance.keys());
+  for(const reg of data.registrations){
+    if(!activeBool(reg.Active))continue;
+    const a=refId(reg.Apprenant),f=refId(reg.Formation);
+    const learner=learnersById.get(a),training=trainingsById.get(f);
+
+    if(!a||!learner){
+      issues.push(issue('error','Inscription invalide',`Inscription #${reg.id} : apprenant introuvable.`));
+      continue;
+    }
+    if(!f||!training){
+      issues.push(issue('error','Inscription invalide',`Inscription #${reg.id} : formation introuvable.`));
+      continue;
+    }
+    if(learner.Actif!=null&&!activeBool(learner.Actif)){
+      issues.push(issue('warn','Apprenant inactif',`${nameOfLearner(learner)} possède une inscription active à ${nameOfTraining(training)}.`));
+      continue;
+    }
+    if(training.Active!=null&&!activeBool(training.Active)){
+      issues.push(issue('warn','Formation inactive',`${nameOfLearner(learner)} possède une inscription active à ${nameOfTraining(training)}.`));
+      continue;
+    }
+
+    const start=asDate(training.Date_Debut),end=asDate(training.Date_Fin);
+    if(!start||!end||start>end)continue;
+
+    for(let d=new Date(start);d<=end;d=addDay(d)){
+      if(!isWeekday(d))continue;
+      for(const part of ['Matin','Après-midi']){
+        const key=attendanceKey(a,f,d,part);
+        if(futureKeys.has(key))continue;
+        futureKeys.add(key);
+        attendanceActions.push(["AddRecord",TABLES.attendance,null,{
+          Apprenant:a,
+          Formation:f,
+          Date_Formation:gristDate(d),
+          Demi_Journee:part,
+          Signature_Effectuee:false,
+          Absent:false
+        }]);
+      }
+    }
+  }
+
+  return{issues,dayActions,attendanceActions};
+}
+
+function render(result){
+  const errors=result.issues.filter(x=>x.level==='error').length;
+  const warnings=result.issues.filter(x=>x.level==='warn').length;
+  $('sDays').textContent=result.dayActions.length;
+  $('sAttendance').textContent=result.attendanceActions.length;
+  $('sErrors').textContent=errors;
+  $('sWarnings').textContent=warnings;
+  $('statsCard').classList.remove('hidden');
+  $('issuesCard').classList.remove('hidden');
+
+  $('issues').innerHTML=result.issues.length
+    ? result.issues.map(x=>`<tr>
+        <td><span class="tag ${x.level}">${x.level==='error'?'Anomalie':'Avertissement'}</span></td>
+        <td>${x.type}</td><td>${x.detail}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="3"><span class="tag info">Aucun problème détecté</span></td></tr>`;
+}
+
+async function analyseOnly(){
+  if(busy)return;busy=true;$('analyse').disabled=$('sync').disabled=true;setMsg('Analyse en cours…');
+  try{
+    const data=await loadData(),result=analyseData(data);render(result);
+    const errors=result.issues.filter(x=>x.level==='error').length;
+    setMsg(`Analyse terminée : ${result.dayActions.length} journée(s) et ${result.attendanceActions.length} émargement(s) à créer, ${errors} anomalie(s).`,errors?'warn':'ok');
+  }catch(err){console.error(err);setMsg(err.message||'Erreur pendant l’analyse.','error')}
+  finally{busy=false;$('analyse').disabled=$('sync').disabled=false}
+}
+
+async function syncAll(){
+  if(busy)return;busy=true;$('analyse').disabled=$('sync').disabled=true;setMsg('Analyse et synchronisation…');
+  try{
+    let data=await loadData(),result=analyseData(data);render(result);
+
+    const actions=[...result.dayActions,...result.attendanceActions];
+    if(actions.length)await grist.docApi.applyUserActions(actions);
+
+    data=await loadData();const after=analyseData(data);render(after);
+    const errors=after.issues.filter(x=>x.level==='error').length;
+    setMsg(`${result.dayActions.length} journée(s) et ${result.attendanceActions.length} émargement(s) créés. ${errors} anomalie(s) restante(s).`,errors?'warn':'ok');
+  }catch(err){console.error(err);setMsg(err.message||'Erreur pendant la synchronisation.','error')}
+  finally{busy=false;$('analyse').disabled=$('sync').disabled=false}
+}
+
+$('analyse').onclick=analyseOnly;
+$('sync').onclick=syncAll;
 grist.ready({requiredAccess:'full'});
 </script>
 </body>
