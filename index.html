@@ -83,14 +83,26 @@ function tableRows(t){
   return ids.map((id,i)=>Object.fromEntries([['id',id],...keys.map(k=>[k,t[k]?.[i]])]));
 }
 function refId(v){ if(v==null) return null; if(typeof v==='number') return v; if(typeof v==='object'&&v.id) return v.id; return Number(v)||null; }
-function asDate(v){
-  if(!v) return null; if(v instanceof Date) return v;
-  if(typeof v==='number') return new Date(v*1000);
-  const d=new Date(v); return isNaN(d)?null:d;
+// Les colonnes Grist de type Date sont des dates civiles, pas des instants.
+// On lit donc leurs composantes en UTC pour éviter tout décalage d'un jour.
+function civilParts(v){
+  if(!v) return null;
+  if(typeof v==='string'){
+    const m=v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(m) return {y:Number(m[1]),m:Number(m[2]),d:Number(m[3])};
+  }
+  const raw=v instanceof Date?v:(typeof v==='number'?new Date(v*1000):new Date(v));
+  if(isNaN(raw)) return null;
+  return {y:raw.getUTCFullYear(),m:raw.getUTCMonth()+1,d:raw.getUTCDate()};
 }
 function localISO(d=new Date()){const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);const o=Object.fromEntries(p.map(x=>[x.type,x.value]));return `${o.year}-${o.month}-${o.day}`;}
-function ymd(v){const d=asDate(v); if(!d)return''; return localISO(d);}
-function frDate(v){const d=asDate(v)||new Date();return new Intl.DateTimeFormat('fr-FR',{timeZone:'Europe/Paris',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(d).replace(/^./,c=>c.toUpperCase());}
+function ymd(v){const p=civilParts(v);if(!p)return'';return `${p.y}-${String(p.m).padStart(2,'0')}-${String(p.d).padStart(2,'0')}`;}
+function frDate(v){
+  const p=civilParts(v);
+  if(!p) return '';
+  const d=new Date(Date.UTC(p.y,p.m-1,p.d,12));
+  return new Intl.DateTimeFormat('fr-FR',{timeZone:'UTC',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(d).replace(/^./,c=>c.toUpperCase());
+}
 function parisHour(){return Number(new Intl.DateTimeFormat('fr-FR',{timeZone:'Europe/Paris',hour:'2-digit',hour12:false}).format(new Date()));}
 function parisWeekday(){const s=new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Paris',weekday:'short'}).format(new Date());return ['Mon','Tue','Wed','Thu','Fri'].includes(s);}
 function msg(target,text,type='info'){target.innerHTML=text?`<div class="msg ${type}">${text}</div>`:'';}

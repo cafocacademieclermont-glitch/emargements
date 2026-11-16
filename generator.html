@@ -22,6 +22,7 @@ button:disabled{opacity:.5;cursor:default}
 .stat{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fbfcfe}.stat b{display:block;font-size:26px;color:#123f7d}.stat span{font-size:12px;color:#667085}
 table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;border-bottom:1px solid #e7ebf1;padding:9px 8px;vertical-align:top}th{color:#516077;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
 .tag{display:inline-block;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:750}.tag.error{background:#fff0f0}.tag.warn{background:#fff5e5}.tag.info{background:#eef4ff;color:#355b8b}
+.filters{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}.filter{background:#f2f5f9;color:#42526a;border:1px solid #d9e0ea;padding:7px 10px;font-size:12px}.filter.active{background:#1457b8;color:#fff;border-color:#1457b8}
 .hidden{display:none!important}.muted{color:#768196;font-size:13px}
 @media(max-width:720px){main{padding:10px}.stats{grid-template-columns:1fr 1fr}.card{padding:15px}table{font-size:12px}}
 </style>
@@ -54,6 +55,13 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;b
   <section id="issuesCard" class="card hidden">
     <h2>Contrôles</h2>
     <div class="muted">Les avertissements n'empêchent pas la synchronisation. Les anomalies doivent être vérifiées.</div>
+    <div class="filters" id="filters">
+      <button class="filter active" data-filter="all">Tout</button>
+      <button class="filter" data-filter="error">Anomalies</button>
+      <button class="filter" data-filter="warn">Avertissements</button>
+      <button class="filter" data-filter="attendance">Émargements à créer</button>
+      <button class="filter" data-filter="day">Journées à créer</button>
+    </div>
     <div style="overflow:auto;margin-top:10px">
       <table>
         <thead><tr><th>Niveau</th><th>Type</th><th>Détail</th></tr></thead>
@@ -84,16 +92,25 @@ function refId(v){if(v==null)return null;if(typeof v==='number')return v;if(type
 function activeBool(v){return v===true||v===1||String(v).toLowerCase()==='true'}
 function asDate(v){
   if(!v)return null;
-  if(v instanceof Date)return new Date(v.getFullYear(),v.getMonth(),v.getDate());
-  if(typeof v==='number'){const d=new Date(v*1000);return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
-  const d=new Date(v);return isNaN(d)?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  if(typeof v==='string'){
+    const m=v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(m)return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),12);
+  }
+  const raw=v instanceof Date?v:(typeof v==='number'?new Date(v*1000):new Date(v));
+  if(isNaN(raw))return null;
+  // Une Date Grist est une date civile : récupérer les composantes UTC,
+  // puis travailler à midi local pour éviter les effets DST pendant les boucles.
+  return new Date(raw.getUTCFullYear(),raw.getUTCMonth(),raw.getUTCDate(),12);
 }
 function ymdDate(d){
   if(!d)return '';
   const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${day}`;
 }
-function gristDate(d){return Math.floor(new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()/1000)}
+function gristDate(d){
+  // Toujours écrire minuit UTC : Grist affichera exactement la même date civile.
+  return Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/1000);
+}
 function addDay(d,n=1){const x=new Date(d);x.setDate(x.getDate()+n);return x}
 function isWeekday(d){const n=d.getDay();return n!==0&&n!==6}
 function attendanceKey(a,f,d,p){return `${a}-${f}-${ymdDate(d)}-${p}`}
@@ -131,6 +148,7 @@ async function loadData(){
 
 function analyseData(data){
   const issues=[];
+  const planned=[];
   const learnersById=new Map(data.learners.map(x=>[x.id,x]));
   const trainingsById=new Map(data.trainings.map(x=>[x.id,x]));
 
@@ -201,6 +219,11 @@ function analyseData(data){
           Formation:training.id,
           Date_Formation:gristDate(d)
         }]);
+        planned.push({
+          level:'day',
+          type:'Journée à créer',
+          detail:`${nameOfTraining(training)} — ${ymdDate(d)}`
+        });
       }
     }
   }
@@ -246,14 +269,41 @@ function analyseData(data){
           Signature_Effectuee:false,
           Absent:false
         }]);
+        planned.push({
+          level:'attendance',
+          type:'Émargement à créer',
+          detail:`${nameOfLearner(learner)} — ${nameOfTraining(training)} — ${ymdDate(d)} — ${part}`
+        });
       }
     }
   }
 
-  return{issues,dayActions,attendanceActions};
+  return{issues,planned,dayActions,attendanceActions};
+}
+
+let currentResult=null;
+let currentFilter='all';
+
+function renderRows(){
+  if(!currentResult)return;
+  const items=[...currentResult.issues,...currentResult.planned];
+  const filtered=currentFilter==='all'?items:items.filter(x=>x.level===currentFilter);
+
+  $('issues').innerHTML=filtered.length
+    ? filtered.map(x=>`<tr>
+        <td><span class="tag ${x.level==='error'?'error':x.level==='warn'?'warn':'info'}">${
+          x.level==='error'?'Anomalie':
+          x.level==='warn'?'Avertissement':
+          x.level==='attendance'?'Émargement':
+          'Journée'
+        }</span></td>
+        <td>${x.type}</td><td>${x.detail}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="3"><span class="tag info">Aucun élément dans ce filtre</span></td></tr>`;
 }
 
 function render(result){
+  currentResult=result;
   const errors=result.issues.filter(x=>x.level==='error').length;
   const warnings=result.issues.filter(x=>x.level==='warn').length;
   $('sDays').textContent=result.dayActions.length;
@@ -262,14 +312,16 @@ function render(result){
   $('sWarnings').textContent=warnings;
   $('statsCard').classList.remove('hidden');
   $('issuesCard').classList.remove('hidden');
-
-  $('issues').innerHTML=result.issues.length
-    ? result.issues.map(x=>`<tr>
-        <td><span class="tag ${x.level}">${x.level==='error'?'Anomalie':'Avertissement'}</span></td>
-        <td>${x.type}</td><td>${x.detail}</td>
-      </tr>`).join('')
-    : `<tr><td colspan="3"><span class="tag info">Aucun problème détecté</span></td></tr>`;
+  renderRows();
 }
+
+document.querySelectorAll('.filter').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    currentFilter=btn.dataset.filter;
+    document.querySelectorAll('.filter').forEach(x=>x.classList.toggle('active',x===btn));
+    renderRows();
+  });
+});
 
 async function analyseOnly(){
   if(busy)return;busy=true;$('analyse').disabled=$('sync').disabled=true;setMsg('Analyse en cours…');
