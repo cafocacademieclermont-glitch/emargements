@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Export émargements</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+:root{
+  --blue:#0b3d8f;--ink:#111827;--muted:#667085;--line:#6b7280;--soft:#eef3f8;
+  font-family:Arial,Helvetica,sans-serif
+}
+*{box-sizing:border-box}
+body{margin:0;background:#f3f5f8;color:var(--ink)}
+.toolbar{max-width:1200px;margin:20px auto;padding:18px;background:#fff;border:1px solid #dce2ea;border-radius:14px;box-shadow:0 5px 22px rgba(20,40,70,.08)}
+.toolbar h1{margin:0 0 14px;color:var(--blue);font-size:24px}
+.controls{display:grid;grid-template-columns:1.5fr 1fr 1.5fr auto;gap:12px;align-items:end}
+.field label{display:block;font-size:12px;font-weight:700;color:#556176;margin-bottom:6px}
+select,input,button{font:inherit}
+select,input{width:100%;padding:10px 11px;border:1px solid #cbd4df;border-radius:9px;background:#fff}
+button{border:0;border-radius:9px;padding:11px 16px;background:#1457b8;color:#fff;font-weight:750;cursor:pointer;white-space:nowrap}
+button.secondary{background:#eef3fb;color:#244f86;border:1px solid #ccd8e9}
+button:disabled{opacity:.5;cursor:default}
+.msg{margin-top:12px;padding:10px 12px;border-radius:8px;background:#eef4ff;color:#355b8b;font-weight:650}
+.msg.error{background:#fff0f0;color:#9b1c1c}.msg.ok{background:#eaf8ef;color:#176b38}
+
+.preview-wrap{padding:0 20px 32px;overflow:auto}
+.sheet{
+  width:297mm;min-height:210mm;margin:0 auto;background:#fff;padding:12mm 13mm 10mm;
+  box-shadow:0 4px 20px rgba(0,0,0,.12);color:#111
+}
+.header{display:grid;grid-template-columns:58mm 1fr 52mm;gap:8mm;align-items:start}
+.rf{font-weight:800;font-size:15px;line-height:1.05}
+.rf .flag{width:34px;height:14px;display:grid;grid-template-columns:1fr 1fr 1fr;margin-bottom:6px}
+.rf .flag span:nth-child(1){background:#153b8d}.rf .flag span:nth-child(2){background:#fff;border-top:1px solid #ddd;border-bottom:1px solid #ddd}.rf .flag span:nth-child(3){background:#e32636}
+.rf small{display:block;font-family:Georgia,serif;font-weight:500;font-style:italic;line-height:1.15;margin-top:6px}
+.org{font-size:10px;line-height:1.4;margin-top:7mm}
+.center{text-align:center}.center h2{font-size:17px;margin:15mm 0 5mm}.meta{text-align:left;display:inline-block;font-size:11px;font-weight:700;line-height:1.6}
+.brand{text-align:center;font-weight:800;color:#555;font-size:10px}.brand strong{display:block;border:5px solid #777;border-left-width:10px;border-right-width:10px;padding:3px 6px;font-size:21px;letter-spacing:.06em;margin:5px 0}.brand span{display:block;font-size:12px}
+
+.attendance{width:100%;border-collapse:collapse;margin-top:9mm;table-layout:fixed;font-size:9px}
+.attendance th,.attendance td{border:1px solid #555;padding:3px;text-align:center;vertical-align:middle}
+.attendance .namecol{width:48mm;text-align:left;font-weight:700;font-size:10px}
+.attendance thead th{font-weight:700}
+.attendance .dayhead{font-size:10px;line-height:1.2}
+.attendance .rooms{font-size:8px;font-weight:600;min-height:10px}
+.attendance .part{font-size:9px;font-weight:500}
+.attendance .person-name{text-align:left;font-size:11px;font-weight:700;padding-left:5px;height:24mm}
+.attendance .trainer-label{text-align:left;font-weight:800;height:8mm;padding-left:5px}
+.attendance .trainer-name{text-align:left;font-size:10px;height:18mm;padding-left:5px}
+.sigcell{height:24mm;padding:1px!important}
+.trainer-sig{height:18mm;padding:1px!important}
+.signature-img{display:block;max-width:100%;max-height:21mm;margin:auto;object-fit:contain}
+.trainer-sig .signature-img{max-height:15mm}
+.absent-mark{font-weight:800;font-size:10px;letter-spacing:.04em}
+.pending-mark{font-size:8px;color:#777}
+.footer{margin-top:9mm;display:flex;justify-content:flex-end;font-size:8px;color:#444}
+.empty{text-align:center;padding:25mm 0;color:#7a8495}
+.page-note{font-size:8px;color:#555;margin-top:4mm;text-align:right}
+
+@media(max-width:850px){
+  .controls{grid-template-columns:1fr}.preview-wrap{padding:0 0 20px}.sheet{transform-origin:top left}
+}
+
+@page{size:A4 landscape;margin:0}
+@media print{
+  body{background:#fff}
+  .toolbar{display:none!important}
+  .preview-wrap{padding:0;overflow:visible}
+  .sheet{box-shadow:none;margin:0;width:297mm;min-height:210mm;page-break-after:always}
+}
+</style>
+</head>
+<body>
+
+<section class="toolbar">
+  <h1>Export hebdomadaire des émargements</h1>
+  <div class="controls">
+    <div class="field">
+      <label>Formation</label>
+      <select id="formation"></select>
+    </div>
+    <div class="field">
+      <label>Semaine</label>
+      <input id="week" type="week">
+    </div>
+    <div class="field">
+      <label>Apprenant</label>
+      <select id="learner"></select>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button id="refresh" class="secondary">Actualiser</button>
+      <button id="pdf">Imprimer / PDF</button>
+    </div>
+  </div>
+  <div id="msg" class="msg">Chargement…</div>
+</section>
+
+<div class="preview-wrap">
+  <article id="sheet" class="sheet">
+    <div class="empty">Sélectionnez une formation, une semaine et un apprenant.</div>
+  </article>
+</div>
+
+<script>
+const TABLES={
+  learners:'Apprenants',
+  trainings:'Formations',
+  registrations:'Inscriptions',
+  attendance:'Emargements',
+  days:'Formation_Jours',
+  trainers:'Formateurs',
+  trainerAttendance:'Emargements_Formateurs'
+};
+const el=id=>document.getElementById(id);
+let DATA=null;
+
+function tableRows(t){
+  if(!t)return[];
+  if(Array.isArray(t))return t;
+  const ids=t.id||[],keys=Object.keys(t).filter(k=>k!=='id');
+  return ids.map((id,i)=>Object.fromEntries([['id',id],...keys.map(k=>[k,t[k]?.[i]])]));
+}
+function refId(v){if(v==null)return null;if(typeof v==='number')return v;if(typeof v==='object'&&v.id)return v.id;return Number(v)||null}
+function activeBool(v){return v===true||v===1||String(v).toLowerCase()==='true'}
+function fullName(r){return `${r?.Prenom||''} ${r?.Nom||''}`.trim()}
+function listValue(v){
+  if(!v)return[];
+  if(Array.isArray(v))return v[0]==='L'?v.slice(1):v;
+  return[v];
+}
+function civilParts(v){
+  if(!v)return null;
+  if(typeof v==='string'){
+    const m=v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(m)return{y:+m[1],m:+m[2],d:+m[3]};
+  }
+  const raw=v instanceof Date?v:(typeof v==='number'?new Date(v*1000):new Date(v));
+  if(isNaN(raw))return null;
+  return{y:raw.getUTCFullYear(),m:raw.getUTCMonth()+1,d:raw.getUTCDate()};
+}
+function isoDate(v){
+  const p=civilParts(v);if(!p)return'';
+  return `${p.y}-${String(p.m).padStart(2,'0')}-${String(p.d).padStart(2,'0')}`;
+}
+function dateObjFromISO(s){
+  const [y,m,d]=s.split('-').map(Number);
+  return new Date(Date.UTC(y,m-1,d,12));
+}
+function addDaysISO(s,n){
+  const d=dateObjFromISO(s);d.setUTCDate(d.getUTCDate()+n);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+}
+function frShort(s){
+  const d=dateObjFromISO(s);
+  return new Intl.DateTimeFormat('fr-FR',{timeZone:'UTC',day:'2-digit',month:'2-digit',year:'numeric'}).format(d);
+}
+function frRange(a,b){
+  const da=dateObjFromISO(a),db=dateObjFromISO(b);
+  const fmt=new Intl.DateTimeFormat('fr-FR',{timeZone:'UTC',day:'numeric',month:'long',year:'numeric'});
+  return `du ${fmt.format(da)} au ${fmt.format(db)}`;
+}
+function currentWeekValue(){
+  const now=new Date();
+  const local=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
+  const o=Object.fromEntries(local.map(x=>[x.type,x.value]));
+  const d=new Date(Date.UTC(+o.year,+o.month-1,+o.day,12));
+  const day=d.getUTCDay()||7;
+  d.setUTCDate(d.getUTCDate()+4-day);
+  const year=d.getUTCFullYear();
+  const jan4=new Date(Date.UTC(year,0,4,12));
+  const janDay=jan4.getUTCDay()||7;
+  jan4.setUTCDate(jan4.getUTCDate()+4-janDay);
+  const week=1+Math.round((d-jan4)/604800000);
+  return `${year}-W${String(week).padStart(2,'0')}`;
+}
+function weekMonday(weekValue){
+  const m=weekValue.match(/^(\d{4})-W(\d{2})$/);
+  if(!m)return null;
+  const year=+m[1],week=+m[2];
+  const jan4=new Date(Date.UTC(year,0,4,12));
+  const day=jan4.getUTCDay()||7;
+  const monday=new Date(jan4);
+  monday.setUTCDate(jan4.getUTCDate()-(day-1)+(week-1)*7);
+  return `${monday.getUTCFullYear()}-${String(monday.getUTCMonth()+1).padStart(2,'0')}-${String(monday.getUTCDate()).padStart(2,'0')}`;
+}
+function msg(text,type=''){el('msg').textContent=text;el('msg').className='msg '+type}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+async function loadAll(){
+  const names=Object.values(TABLES);
+  const results=await Promise.all(names.map(async name=>{
+    try{return [name,tableRows(await grist.docApi.fetchTable(name))]}
+    catch(err){throw new Error(`Table "${name}" introuvable ou inaccessible.`)}
+  }));
+  return Object.fromEntries(results);
+}
+
+function populateFormations(){
+  const rows=DATA[Tables().trainings].filter(f=>f.Active==null||activeBool(f.Active));
+  el('formation').innerHTML=rows.map(f=>`<option value="${f.id}">${esc(f.Nom_Formation||`Formation #${f.id}`)}</option>`).join('');
+}
+function Tables(){return TABLES}
+
+function populateLearners(){
+  const fid=Number(el('formation').value);
+  const ids=new Set(DATA[TABLES.registrations]
+    .filter(r=>activeBool(r.Active)&&refId(r.Formation)===fid)
+    .map(r=>refId(r.Apprenant)).filter(Boolean));
+  const learners=DATA[TABLES.learners]
+    .filter(a=>ids.has(a.id)&&(a.Actif==null||activeBool(a.Actif)))
+    .sort((a,b)=>(a.Nom||'').localeCompare(b.Nom||'','fr'));
+  const previous=Number(el('learner').value);
+  el('learner').innerHTML=learners.map(a=>`<option value="${a.id}">${esc(fullName(a))}</option>`).join('');
+  if(learners.some(x=>x.id===previous))el('learner').value=String(previous);
+}
+
+function attendanceFor(aid,fid,date,part){
+  return DATA[TABLES.attendance].find(r=>
+    refId(r.Apprenant)===aid&&refId(r.Formation)===fid&&isoDate(r.Date_Formation)===date&&r.Demi_Journee===part
+  )||null;
+}
+function dayInfo(fid,date){
+  return DATA[TABLES.days].find(r=>refId(r.Formation)===fid&&isoDate(r.Date_Formation)===date)||null;
+}
+function trainerAttendanceRows(fid,dates){
+  return DATA[TABLES.trainerAttendance].filter(r=>
+    refId(r.Formation)===fid&&dates.includes(isoDate(r.Date_Formation))&&activeBool(r.Signature_Effectuee)
+  );
+}
+function signatureCell(row,trainer=false){
+  const cls=trainer?'trainer-sig':'sigcell';
+  if(!row)return `<td class="${cls}"><span class="pending-mark">Non signé</span></td>`;
+  if(activeBool(row.Absent))return `<td class="${cls}"><span class="absent-mark">ABSENT</span></td>`;
+  if(activeBool(row.Signature_Effectuee)&&row.Signature_Data){
+    return `<td class="${cls}"><img class="signature-img" src="${esc(row.Signature_Data)}" alt="Signature"></td>`;
+  }
+  return `<td class="${cls}"><span class="pending-mark">Non signé</span></td>`;
+}
+
+function render(){
+  if(!DATA)return;
+  const fid=Number(el('formation').value),aid=Number(el('learner').value),week=el('week').value;
+  const training=DATA[TABLES.trainings].find(f=>f.id===fid);
+  const learner=DATA[TABLES.learners].find(a=>a.id===aid);
+  const monday=weekMonday(week);
+  if(!training||!learner||!monday){
+    el('sheet').innerHTML='<div class="empty">Sélection incomplète.</div>';return;
+  }
+
+  const dates=[0,1,2,3,4].map(n=>addDaysISO(monday,n));
+  const start=isoDate(training.Date_Debut),end=isoDate(training.Date_Fin);
+  const visibleDates=dates.filter(d=>(!start||d>=start)&&(!end||d<=end));
+  if(!visibleDates.length){
+    el('sheet').innerHTML='<div class="empty">Cette formation ne couvre aucun jour de la semaine sélectionnée.</div>';
+    msg('Aucune journée de formation sur cette semaine.','error');return;
+  }
+
+  const trainersById=new Map(DATA[TABLES.trainers].map(t=>[t.id,t]));
+  const trainerAtt=trainerAttendanceRows(fid,visibleDates);
+  const signedTrainerIds=[...new Set(trainerAtt.map(r=>refId(r.Formateur)).filter(Boolean))];
+  const trainers=signedTrainerIds.map(id=>trainersById.get(id)).filter(Boolean)
+    .sort((a,b)=>(a.Nom||'').localeCompare(b.Nom||'','fr'));
+
+  const roomSummary=[...new Set(visibleDates.flatMap(d=>listValue(dayInfo(fid,d)?.Salles).map(String)).filter(Boolean))];
+  const colSpan=visibleDates.length*2;
+
+  const dayHeaders=visibleDates.map(d=>{
+    const rooms=listValue(dayInfo(fid,d)?.Salles).map(String).filter(Boolean).join(' / ');
+    return `<th colspan="2" class="dayhead">${frShort(d)}<div class="rooms">${esc(rooms||'Salle non renseignée')}</div></th>`;
+  }).join('');
+
+  const partHeaders=visibleDates.map(()=>`<th class="part">Matin</th><th class="part">Après-midi</th>`).join('');
+  const learnerCells=visibleDates.map(d=>
+    signatureCell(attendanceFor(aid,fid,d,'Matin'))+
+    signatureCell(attendanceFor(aid,fid,d,'Après-midi'))
+  ).join('');
+
+  let trainerRows='';
+  if(trainers.length){
+    trainerRows=`<tr><td class="trainer-label">Formateur(trices)</td><td colspan="${colSpan}"></td></tr>`;
+    for(const t of trainers){
+      const cells=visibleDates.map(d=>{
+        const m=trainerAtt.find(r=>refId(r.Formateur)===t.id&&isoDate(r.Date_Formation)===d&&r.Demi_Journee==='Matin');
+        const a=trainerAtt.find(r=>refId(r.Formateur)===t.id&&isoDate(r.Date_Formation)===d&&r.Demi_Journee==='Après-midi');
+        return signatureCell(m,true)+signatureCell(a,true);
+      }).join('');
+      trainerRows+=`<tr><td class="trainer-name">${esc(fullName(t))}</td>${cells}</tr>`;
+    }
+  }else{
+    trainerRows=`<tr><td class="trainer-label">Formateur(trices)</td><td colspan="${colSpan}" class="pending-mark">Aucun émargement formateur enregistré sur cette semaine.</td></tr>`;
+  }
+
+  const html=`
+    <div class="header">
+      <div>
+        <div class="rf">
+          <div class="flag"><span></span><span></span><span></span></div>
+          RÉPUBLIQUE<br>FRANÇAISE
+          <small>Liberté<br>Égalité<br>Fraternité</small>
+        </div>
+        <div class="org">
+          GIP FCIP Auvergne<br>
+          Pôle Cafoc<br>
+          Clermont-Ferrand
+        </div>
+      </div>
+
+      <div class="center">
+        <h2>FEUILLE D'ÉMARGEMENT FORMATION</h2>
+        <div class="meta">
+          Intitulé de la Formation : « ${esc(training.Nom_Formation||'')} »<br>
+          Lieux : ${esc(roomSummary.join(' - ')||'Non renseigné')}<br>
+          Dates : ${esc(frRange(visibleDates[0],visibleDates[visibleDates.length-1]))}<br>
+          Apprenant : ${esc(fullName(learner))}
+        </div>
+      </div>
+
+      <div class="brand">
+        GIP FCIP AUVERGNE
+        <strong>CAFOC</strong>
+        <span>ACADÉMIE DE<br>CLERMONT-FERRAND</span>
+      </div>
+    </div>
+
+    <table class="attendance">
+      <thead>
+        <tr>
+          <th rowspan="2" class="namecol">NOM Prénom</th>
+          ${dayHeaders}
+        </tr>
+        <tr>${partHeaders}</tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="person-name">${esc(fullName(learner))}</td>
+          ${learnerCells}
+        </tr>
+        ${trainerRows}
+      </tbody>
+    </table>
+
+    <div class="footer">Document généré depuis Grist - ${new Intl.DateTimeFormat('fr-FR',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Paris'}).format(new Date())}</div>
+  `;
+  el('sheet').innerHTML=html;
+  document.title=`Emargements_${(learner.Nom||'').replace(/\s+/g,'_')}_${week}`;
+  msg(`Aperçu prêt : ${visibleDates.length} jour(s), ${trainers.length} formateur(s) ayant signé.`,'ok');
+}
+
+async function init(){
+  try{
+    DATA=await loadAll();
+    populateFormations();
+    el('week').value=currentWeekValue();
+    populateLearners();
+    render();
+    msg('Données chargées.','ok');
+  }catch(err){
+    console.error(err);msg(err.message||'Impossible de charger les données.','error');
+  }
+}
+
+el('formation').onchange=()=>{populateLearners();render()};
+el('week').onchange=render;
+el('learner').onchange=render;
+el('refresh').onclick=async()=>{msg('Actualisation…');DATA=await loadAll();populateLearners();render()};
+el('pdf').onclick=()=>window.print();
+
+grist.ready({requiredAccess:'full'});
+init();
+</script>
+</body>
+</html>
