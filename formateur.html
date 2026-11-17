@@ -74,7 +74,7 @@ button{font:inherit;border:0;border-radius:11px;cursor:pointer}.primary{width:10
 </div>
 
 <script>
-const TABLES={trainers:'Formateurs',trainings:'Formations',days:'Formation_Jours',learners:'Apprenants',registrations:'Inscriptions',attendance:'Emargements',trainerAttendance:'Emargements_Formateurs'};
+const TABLES={trainers:'Formateurs',trainings:'Formations',days:'Formation_Jours',rooms:'Salles',learners:'Apprenants',registrations:'Inscriptions',attendance:'Emargements',trainerAttendance:'Emargements_Formateurs'};
 const el=id=>document.getElementById(id);
 let state={trainer:null,trainings:[],all:null,part:null,drawn:false,busy:false};
 
@@ -82,20 +82,33 @@ function tableRows(t){if(!t)return[];if(Array.isArray(t))return t;const ids=t.id
 function refId(v){if(v==null)return null;if(typeof v==='number')return v;if(typeof v==='object'&&v.id)return v.id;return Number(v)||null}
 function refIds(v){if(!v)return[];if(Array.isArray(v)){if(v[0]==='L')return v.slice(1).map(refId).filter(Boolean);return v.map(refId).filter(Boolean)}return[refId(v)].filter(Boolean)}
 function activeBool(v){return v===true||v===1||String(v).toLowerCase()==='true'}
-function asDate(v){if(!v)return null;if(v instanceof Date)return v;if(typeof v==='number')return new Date(v*1000);const d=new Date(v);return isNaN(d)?null:d}
-function ymd(v){const d=asDate(v);if(!d)return'';const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);const o=Object.fromEntries(p.map(x=>[x.type,x.value]));return `${o.year}-${o.month}-${o.day}`}
-function todayParis(){return ymd(new Date())}
-function gristDate(iso){const [y,m,d]=iso.split('-').map(Number);return Math.floor(new Date(y,m-1,d).getTime()/1000)}
+function civilParts(v){
+  if(!v)return null;
+  if(typeof v==='string'){
+    const m=v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(m)return{y:+m[1],m:+m[2],d:+m[3]};
+  }
+  const raw=v instanceof Date?v:(typeof v==='number'?new Date(v*1000):new Date(v));
+  if(isNaN(raw))return null;
+  return{y:raw.getUTCFullYear(),m:raw.getUTCMonth()+1,d:raw.getUTCDate()};
+}
+function ymd(v){const p=civilParts(v);if(!p)return'';return `${p.y}-${String(p.m).padStart(2,'0')}-${String(p.d).padStart(2,'0')}`}
+function todayParis(){
+  const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+  const o=Object.fromEntries(p.map(x=>[x.type,x.value]));
+  return `${o.year}-${o.month}-${o.day}`;
+}
+function gristDate(iso){const [y,m,d]=iso.split('-').map(Number);return Math.floor(Date.UTC(y,m-1,d)/1000)}
 function msg(target,text,type='info'){target.innerHTML=text?`<div class="msg ${type}">${text}</div>`:''}
 function listValue(v){if(!v)return[];if(Array.isArray(v))return v[0]==='L'?v.slice(1):v;return[v]}
 function fullName(r){return `${r.Prenom||''} ${r.Nom||''}`.trim()}
 
 async function loadAll(){
-const [tr,fo,fd,ap,ins,em,ef]=await Promise.all([
+const [tr,fo,fd,sa,ap,ins,em,ef]=await Promise.all([
 grist.docApi.fetchTable(TABLES.trainers),grist.docApi.fetchTable(TABLES.trainings),grist.docApi.fetchTable(TABLES.days),
-grist.docApi.fetchTable(TABLES.learners),grist.docApi.fetchTable(TABLES.registrations),grist.docApi.fetchTable(TABLES.attendance),
-grist.docApi.fetchTable(TABLES.trainerAttendance)]);
-return{trainers:tableRows(tr),trainings:tableRows(fo),days:tableRows(fd),learners:tableRows(ap),registrations:tableRows(ins),attendance:tableRows(em),trainerAttendance:tableRows(ef)};
+grist.docApi.fetchTable(TABLES.rooms),grist.docApi.fetchTable(TABLES.learners),grist.docApi.fetchTable(TABLES.registrations),
+grist.docApi.fetchTable(TABLES.attendance),grist.docApi.fetchTable(TABLES.trainerAttendance)]);
+return{trainers:tableRows(tr),trainings:tableRows(fo),days:tableRows(fd),rooms:tableRows(sa),learners:tableRows(ap),registrations:tableRows(ins),attendance:tableRows(em),trainerAttendance:tableRows(ef)};
 }
 
 async function login(){
@@ -126,7 +139,14 @@ function selectedTrainingId(){return Number(el('training').value)||null}
 function selectedDate(){return el('date').value}
 function renderSlots(){document.querySelectorAll('.slot').forEach(b=>b.classList.toggle('active',b.dataset.part===state.part))}
 function dayRow(){const fid=selectedTrainingId(),date=selectedDate();return state.all.days.find(r=>refId(r.Formation)===fid&&ymd(r.Date_Formation)===date)||null}
-function renderRooms(){const row=dayRow(),values=row?listValue(row.Salles):[];el('rooms').innerHTML=values.length?values.map(x=>`<span class="room">${String(x)}</span>`).join(''):'—'}
+function renderRooms(){
+const row=dayRow(),values=row?listValue(row.Salles):[];
+const labels=values.map(v=>{
+  const id=refId(v),room=id?state.all.rooms.find(r=>r.id===id):null;
+  return room?(room.Nom||`Salle #${room.id}`):String(v);
+});
+el('rooms').innerHTML=labels.length?labels.map(x=>`<span class="room">${x}</span>`).join(''):'—';
+}
 
 function learnerRows(){
 const fid=selectedTrainingId(),date=selectedDate(),part=state.part;
