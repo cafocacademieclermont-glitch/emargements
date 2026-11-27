@@ -34,7 +34,10 @@ button:disabled{opacity:.5;cursor:default}
 .header img{display:block;height:auto}
 .logo-rf{width:28mm}
 .logo-cafoc{width:58mm}
-.center{text-align:center}.center h2{font-size:17px;margin:8mm 0 5mm}.meta{text-align:left;display:inline-block;font-size:11px;font-weight:700;line-height:1.6}
+.title-row{display:flex;align-items:flex-start;gap:10mm;margin-top:3mm}
+.org{flex:0 0 auto;text-align:left;font-size:10px;line-height:1.5;white-space:nowrap}
+.title-row .center{flex:1}
+.center{text-align:center}.center h2{font-size:17px;margin:4mm 0 5mm}.meta{text-align:left;display:inline-block;font-size:11px;font-weight:700;line-height:1.6}
 
 .attendance{width:100%;border-collapse:collapse;margin-top:9mm;table-layout:fixed;font-size:9px}
 .attendance th,.attendance td{border:1px solid #555;padding:3px;text-align:center;vertical-align:middle}
@@ -236,7 +239,7 @@ function weekMonday(weekValue){
   const day=jan4.getUTCDay()||7;
   const monday=new Date(jan4);
   monday.setUTCDate(jan4.getUTCDate()-(day-1)+(week-1)*7);
-  return `${monday.getUTCFullYear()}-${String(monday.getUTCMonth()+1).padStart(2,'0')}-${String(monday.getUTCDate()).padStart(2,'0')}`;
+  return `${monday.getUTCFullYear()}-${String(monday.getUTCMonth()+1).padStart(2,'0')}-${monday.getUTCDate().padStart(2,'0')}`;
 }
 function msg(text,type=''){el('msg').textContent=text;el('msg').className='msg '+type}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -350,14 +353,24 @@ function buildSheet(training,learner,visibleDates,fid,week){
       <img class="logo-rf" src="RF_2026_web.svg" alt="République Française">
       <img class="logo-cafoc" src="CAFOC_2026_web.svg" alt="CAFOC - Académie de Clermont-Ferrand">
     </div>
-    <div class="center">
-      <h2>FEUILLE D'ÉMARGEMENT FORMATION</h2>
-      <div class="meta">
-        Intitulé de la Formation : « ${esc(training.Intitule||training.Nom_Formation||'')} »<br>
-        Lieux : ${esc(roomAddresses.join(' / ')||roomNames.join(' - ')||'Non renseigné')}<br>
-        Dates : ${esc(frRange(visibleDates[0],visibleDates[visibleDates.length-1]))}<br>
-        Horaires : Matin : 9h00 - 12h30 / Après-midi : 13h30 - 17h00<br>
-        Apprenant : ${esc(fullName(learner))}
+    <div class="title-row">
+      <div class="org">
+        GIP FCIP Auvergne<br>
+        Pôle Cafoc<br>
+        3, avenue Vercingétorix<br>
+        63033 Clermont-Ferrand cedex 1<br>
+        Tél. : 04.89 65 37 78<br>
+        E-mail : laurence.barroso@ac-clermont.fr
+      </div>
+      <div class="center">
+        <h2>FEUILLE D'ÉMARGEMENT FORMATION</h2>
+        <div class="meta">
+          Intitulé de la Formation : « ${esc(training.Intitule||training.Nom_Formation||'')} »<br>
+          Lieux : ${esc(roomAddresses.join(' / ')||roomNames.join(' - ')||'Non renseigné')}<br>
+          Dates : ${esc(frRange(visibleDates[0],visibleDates[visibleDates.length-1]))}<br>
+          Horaires : Matin : 9h00 - 12h30 / Après-midi : 13h30 - 17h00<br>
+          Apprenant : ${esc(fullName(learner))}
+        </div>
       </div>
     </div>
 
