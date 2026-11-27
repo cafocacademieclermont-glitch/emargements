@@ -48,6 +48,7 @@ return None
 ## Installation
 
 1. Hébergez `index.html` sur une URL HTTPS publique que vous contrôlez (GitHub Pages, serveur interne HTTPS, etc.).
+   `export-pdf.html` affiche les logos `RF_2026_web.svg` (en haut à gauche) et `CAFOC_2026_web.svg` (en haut à droite) : hébergez ces deux fichiers SVG dans le même répertoire que `export-pdf.html`.
 2. Dans Grist : **Ajouter un widget > Personnalisé**.
 3. Renseignez l'URL publique de `index.html`.
 4. Accordez au widget **Accès complet au document** : il doit lire plusieurs tables, téléverser la signature et mettre à jour `Emargements`.
